@@ -1,0 +1,9 @@
+PyQt6>=6.6
+pyserial>=3.5
+Pillow>=10.0
+pygame>=2.5
+
+# Herramientas de desarrollo
+pytest>=8.0
+black>=24.0
+ruff>=0.4

@@ -1,0 +1,18 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# Datos locales de usuario (no versionar)
+config.json
+database/*.db
+logs/
+
+# Entornos virtuales
+.venv/
+venv/
+
+# IDE
+.vscode/
+*.code-workspace

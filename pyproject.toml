@@ -1,0 +1,21 @@
+[project]
+name = "roadbook-pi"
+version = "1.0.0"
+description = "Plataforma de navegación basada en eventos geográficos para Raspberry Pi"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+
+[tool.black]
+line-length = 88
+target-version = ["py310"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

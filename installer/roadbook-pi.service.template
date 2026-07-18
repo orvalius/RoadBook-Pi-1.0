@@ -1,0 +1,15 @@
+[Unit]
+Description=RoadBook Pi - Navegacion basada en eventos geograficos
+After=graphical.target network.target
+
+[Service]
+Type=simple
+User=__USER__
+Environment=DISPLAY=:0
+WorkingDirectory=__INSTALL_DIR__
+ExecStart=__INSTALL_DIR__/.venv/bin/python __INSTALL_DIR__/main.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=graphical.target
