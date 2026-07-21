@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>RoadBook Pi — Roadbook Rendering Engine (mockup)</title>
+<style>
+  :root {
+    --bg: #14171c;
+    --panel: #1c2128;
+    --panel-2: #232935;
+    --line: #2a3140;
+    --text: #e8e6e1;
+    --text-dim: #8b93a1;
+    --text-passed: #4a5160;
+    --accent: #ff8a00;
+    --accent-dim: #6b4118;
+    --danger: #e0483e;
+    --water: #3aa0d8;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: #0a0c0f;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'IBM Plex Sans', 'Segoe UI', Arial, sans-serif;
+    padding: 24px;
+  }
+
+  .frame-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    align-items: center;
+  }
+
+  .frame-label {
+    color: #565d6b;
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  .device {
+    width: 1000px;
+    max-width: 96vw;
+    aspect-ratio: 1000 / 600;
+    background: #05060a;
+    border-radius: 22px;
+    padding: 16px;
+    box-shadow: 0 30px 80px rgba(0,0,0,0.6), 0 0 0 1px #000;
+  }
+
+  .screen {
+    width: 100%;
+    height: 100%;
+    background: var(--bg);
+    border-radius: 8px;
+    overflow: hidden;
+    display: grid;
+    grid-template-rows: 1fr auto;
+  }
+
+  .main-area {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr;
+    min-height: 0;
+    position: relative;
+  }
+
+  /* ---------- MAPA ---------- */
+  .map-pane {
+    position: relative;
+    background:
+      radial-gradient(circle at 30% 20%, #1a2230 0%, transparent 45%),
+      repeating-linear-gradient(0deg, #171c24 0 1px, transparent 1px 28px),
+      repeating-linear-gradient(90deg, #171c24 0 1px, transparent 1px 28px),
+      var(--bg);
+    border-right: 1px solid var(--line);
+  }
+
+  .map-pane svg { width: 100%; height: 100%; display: block; }
+
+  .route-line {
+    fill: none;
+    stroke: #3d4658;
+    stroke-width: 5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .route-line-progress {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    filter: drop-shadow(0 0 6px rgba(255,138,0,0.6));
+  }
+
+  .node-dot {
+    fill: #3d4658;
+    stroke: var(--bg);
+    stroke-width: 3;
+  }
+  .node-dot.passed { fill: #565d6b; }
+  .node-dot.danger { fill: var(--danger); }
+  .node-dot.water { fill: var(--water); }
+  .node-dot.flag { fill: var(--accent); }
+
+  .position-marker {
+    fill: var(--accent);
+    stroke: #fff;
+    stroke-width: 2;
+  }
+  .position-pulse {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 2;
+    opacity: 0.5;
+  }
+
+  .map-hud {
+    position: absolute;
+    top: 14px; left: 14px;
+    font-family: 'IBM Plex Mono', monospace;
+    color: var(--text);
+    background: rgba(10,12,15,0.55);
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .map-hud b { color: var(--accent); font-size: 15px; }
+
+  /* ---------- TIRA DE ROADBOOK ---------- */
+  .strip-pane {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .strip-header {
+    padding: 10px 14px;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    justify-content: space-between;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .strip-header b { color: var(--text); letter-spacing: 0.02em; }
+
+  .strip-scroll {
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .strip-list {
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.5s cubic-bezier(.3,.8,.4,1);
+  }
+
+  .entry {
+    display: grid;
+    grid-template-columns: 40px 62px 1fr;
+    gap: 10px;
+    align-items: center;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--line);
+    opacity: 1;
+    transition: opacity 0.4s ease, background 0.4s ease;
+    position: relative;
+  }
+
+  .entry.passed { opacity: 0.38; }
+  .entry.passed .entry-text { color: var(--text-passed); }
+  .entry.passed .icon-chip { filter: grayscale(1); }
+
+  .entry.current {
+    background: linear-gradient(90deg, rgba(255,138,0,0.14), transparent 70%);
+    border-left: 3px solid var(--accent);
+    padding-left: 11px;
+  }
+
+  .icon-chip {
+    width: 34px; height: 34px;
+    border-radius: 8px;
+    background: var(--panel-2);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 17px;
+    border: 1px solid var(--line);
+  }
+  .icon-chip.danger { background: rgba(224,72,62,0.18); border-color: var(--danger); color: var(--danger); }
+  .icon-chip.water { background: rgba(58,160,216,0.16); border-color: var(--water); color: var(--water); }
+  .icon-chip.flag { background: rgba(255,138,0,0.16); border-color: var(--accent); color: var(--accent); }
+
+  .entry-km {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    line-height: 1.3;
+    color: var(--text-dim);
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  .entry-km .total { display: block; color: var(--text); font-weight: 600; }
+  .entry.current .entry-km .total { color: var(--accent); }
+
+  .entry-text {
+    font-size: 13.5px;
+    color: var(--text);
+    line-height: 1.35;
+  }
+  .entry.current .entry-text { font-weight: 600; }
+
+  .progress-track {
+    position: absolute;
+    left: 0; bottom: 0;
+    height: 2px;
+    width: 100%;
+    background: var(--accent-dim);
+  }
+  .progress-fill {
+    height: 100%;
+    background: var(--accent);
+    width: 0%;
+    transition: width 0.4s ease;
+  }
+
+  /* ---------- READOUT INFERIOR ---------- */
+  .readout {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 18px;
+    background: #0e1116;
+    border-top: 1px solid var(--line);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+  .readout .stat b { color: var(--text); font-size: 15px; margin-right: 4px; }
+  .readout .stat.accent b { color: var(--accent); }
+
+  /* ---------- OVERLAY DE IMAGEN (accion existente del Event Engine) ----------
+     Traslucido con blur en vez de negro solido, y con transicion lenta +
+     histeresis en el JS para que no titile al cruzar el umbral. */
+  .image-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(10,12,16,0.6);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 10px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 1s ease;
+    z-index: 5;
+  }
+  .image-overlay.show { opacity: 1; pointer-events: all; }
+  .image-overlay .big-icon {
+    font-size: 60px;
+    filter: drop-shadow(0 0 24px rgba(255,138,0,0.45));
+  }
+  .image-overlay .big-text {
+    color: var(--text);
+    font-size: 19px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-shadow: 0 2px 12px rgba(0,0,0,0.6);
+  }
+  .image-overlay .big-sub {
+    color: var(--text-dim);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+  }
+
+  /* ---------- CONTROLES (fuera del "dispositivo", son del mockup) ---------- */
+  .controls {
+    width: 1000px;
+    max-width: 96vw;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  .controls input[type=range] {
+    flex: 1;
+    accent-color: var(--accent);
+  }
+  .controls button {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    color: var(--text);
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 12px;
+    letter-spacing: 0.05em;
+  }
+  .controls button:hover { border-color: var(--accent); color: var(--accent); }
+  .controls button:active { transform: translateY(1px); }
+  .controls .label { color: var(--text); min-width: 130px; }
+</style>
+</head>
+<body>
+
+<div class="frame-wrap">
+  <div class="frame-label">RoadBook Pi &nbsp;·&nbsp; Roadbook Rendering Engine &nbsp;·&nbsp; mockup de UI, sin código real todavía</div>
+
+  <div class="device">
+    <div class="screen">
+      <div class="main-area">
+
+        <div class="map-pane">
+          <svg viewBox="0 0 600 600" preserveAspectRatio="xMidYMid meet">
+            <path id="routePath" class="route-line"
+              d="M 90 500 C 140 420, 120 360, 180 320 S 300 260, 280 190 S 380 120, 360 60"/>
+            <path id="routeProgress" class="route-line-progress" d=""/>
+            <g id="nodes"></g>
+            <circle id="posPulse" class="position-pulse" cx="90" cy="500" r="10"/>
+            <circle id="posMarker" class="position-marker" cx="90" cy="500" r="6"/>
+          </svg>
+          <div class="map-hud">
+            PE ESTANCIA - LA CALERA<br>
+            <b id="hudTotal">00,00</b> / 12,42 km
+          </div>
+        </div>
+
+        <div class="strip-pane">
+          <div class="strip-header"><b>ROADBOOK</b><span id="headerCount">nota 1 / 8</span></div>
+          <div class="strip-scroll">
+            <div class="strip-list" id="stripList"></div>
+          </div>
+        </div>
+
+        <div class="image-overlay" id="imageOverlay">
+          <div class="big-icon" id="overlayIcon">🏁</div>
+          <div class="big-text" id="overlayText">Largada PE Estancia - La Calera</div>
+          <div class="big-sub">acción del Event Engine · se mantiene igual que hoy</div>
+        </div>
+
+      </div>
+
+      <div class="readout">
+        <div class="stat accent"><b id="roSpeed">42</b> km/h</div>
+        <div class="stat"><b id="roHeading">318°</b> rumbo</div>
+        <div class="stat"><b id="roDist">340 m</b> al próximo</div>
+        <div class="stat"><b id="roTotal">00,00 km</b> recorridos</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <span class="label">▶ Simular avance sobre la ruta</span>
+    <input type="range" id="slider" min="0" max="1000" value="0">
+    <button id="playBtn">Auto-avance</button>
+  </div>
+</div>
+
+<script>
+const ENTRIES = [
+  {km: "00,00", partial: "—",    icon: "🏁", cls: "flag",   text: "Largada PE Estancia - La Calera", pos: [90,500], fullAction: true},
+  {km: "01,05", partial: "01,05", icon: "↰", cls: "",       text: "Sigue camino marcado", pos: [140,420]},
+  {km: "02,13", partial: "01,08", icon: "⚠", cls: "danger", text: "Ingresa a propiedad privada", pos: [120,360]},
+  {km: "02,36", partial: "00,23", icon: "〜", cls: "water",  text: "Vado con agua", pos: [180,320]},
+  {km: "04,71", partial: "02,35", icon: "▦", cls: "",       text: "Pasa alambrado", pos: [300,260]},
+  {km: "05,65", partial: "00,94", icon: "▦", cls: "",       text: "Pasa alambrado", pos: [280,190]},
+  {km: "09,43", partial: "03,78", icon: "↱", cls: "",       text: "Sigue por camino marcado", pos: [380,120]},
+  {km: "12,42", partial: "02,99", icon: "🏁", cls: "flag",  text: "Llegada PE Estancia - La Calera", pos: [360,60], fullAction: true},
+];
+
+const stripList = document.getElementById('stripList');
+const nodesG = document.getElementById('nodes');
+const routePath = document.getElementById('routePath');
+const routeProgress = document.getElementById('routeProgress');
+const totalLen = routePath.getTotalLength();
+
+ENTRIES.forEach((e, i) => {
+  const row = document.createElement('div');
+  row.className = 'entry';
+  row.dataset.i = i;
+  row.innerHTML = `
+    <div class="icon-chip ${e.cls}">${e.icon}</div>
+    <div class="entry-km"><span class="total">${e.km}</span>${e.partial}</div>
+    <div class="entry-text">${e.text}</div>
+    ${i < ENTRIES.length - 1 ? '<div class="progress-track"><div class="progress-fill"></div></div>' : ''}
+  `;
+  stripList.appendChild(row);
+
+  const dot = document.createElementNS('http://www.w3.org/2000/svg','circle');
+  dot.setAttribute('cx', e.pos[0]);
+  dot.setAttribute('cy', e.pos[1]);
+  dot.setAttribute('r', 7);
+  dot.setAttribute('class', 'node-dot ' + e.cls);
+  dot.dataset.i = i;
+  nodesG.appendChild(dot);
+});
+
+const slider = document.getElementById('slider');
+const playBtn = document.getElementById('playBtn');
+let playing = false;
+let playTimer = null;
+
+// Histeresis para el overlay: umbrales distintos para mostrar y ocultar,
+// asi no titila al quedar justo en el borde de un solo umbral.
+let overlayVisible = false;
+const SHOW_BELOW = 0.05;
+const HIDE_ABOVE = 0.22;
+
+function pointAt(t) {
+  const len = t * totalLen;
+  return routePath.getPointAtLength(len);
+}
+
+function update(progress) {
+  const t = Math.max(0, Math.min(1, progress));
+  const p = pointAt(t);
+
+  document.getElementById('posMarker').setAttribute('cx', p.x);
+  document.getElementById('posMarker').setAttribute('cy', p.y);
+  document.getElementById('posPulse').setAttribute('cx', p.x);
+  document.getElementById('posPulse').setAttribute('cy', p.y);
+
+  const steps = 40;
+  let d = '';
+  for (let s = 0; s <= steps * t; s++) {
+    const pp = routePath.getPointAtLength((s/steps) * totalLen);
+    d += (s === 0 ? 'M ' : 'L ') + pp.x + ' ' + pp.y + ' ';
+  }
+  routeProgress.setAttribute('d', d);
+
+  const totalKm = 12.42 * t;
+  let currentIdx = 0;
+  for (let i = 0; i < ENTRIES.length; i++) {
+    const kmVal = parseFloat(ENTRIES[i].km.replace(',', '.'));
+    if (totalKm >= kmVal) currentIdx = i;
+  }
+  const next = ENTRIES[Math.min(currentIdx + 1, ENTRIES.length - 1)];
+  const nextKm = parseFloat(next.km.replace(',', '.'));
+  const curKm = parseFloat(ENTRIES[currentIdx].km.replace(',', '.'));
+  const segFrac = nextKm > curKm ? Math.max(0, Math.min(1, (totalKm - curKm) / (nextKm - curKm))) : 1;
+
+  document.querySelectorAll('.entry').forEach((row, i) => {
+    row.classList.remove('passed', 'current');
+    if (i < currentIdx) row.classList.add('passed');
+    if (i === currentIdx) row.classList.add('current');
+    const fill = row.querySelector('.progress-fill');
+    if (fill) fill.style.width = (i === currentIdx ? segFrac * 100 : (i < currentIdx ? 100 : 0)) + '%';
+  });
+
+  nodesG.querySelectorAll('.node-dot').forEach((dot, i) => {
+    dot.classList.toggle('passed', i < currentIdx);
+  });
+
+  const scrollPane = document.querySelector('.strip-scroll');
+  const activeRow = document.querySelector('.entry.current');
+  if (activeRow) {
+    const offset = activeRow.offsetTop - scrollPane.clientHeight / 2 + activeRow.clientHeight / 2;
+    stripList.style.transform = `translateY(${-Math.max(0, offset)}px)`;
+  }
+
+  document.getElementById('hudTotal').textContent = totalKm.toFixed(2).replace('.', ',');
+  document.getElementById('roTotal').textContent = totalKm.toFixed(2).replace('.', ',') + ' km';
+  document.getElementById('roDist').textContent = Math.round((nextKm - totalKm) * 1000) + ' m';
+  document.getElementById('headerCount').textContent = `nota ${currentIdx + 1} / ${ENTRIES.length}`;
+  document.getElementById('roSpeed').textContent = (30 + Math.round(Math.sin(t * 10) * 15 + 15));
+
+  // Overlay con histeresis: una vez que se muestra, se mantiene visible
+  // hasta superar el umbral alto; una vez oculto, no vuelve a mostrarse
+  // hasta bajar del umbral bajo. Evita el parpadeo al cruzar un solo valor.
+  const isFullActionEntry = !!ENTRIES[currentIdx].fullAction;
+  if (isFullActionEntry && !overlayVisible && segFrac < SHOW_BELOW) {
+    overlayVisible = true;
+    document.getElementById('overlayIcon').textContent = ENTRIES[currentIdx].icon;
+    document.getElementById('overlayText').textContent = ENTRIES[currentIdx].text;
+  } else if (overlayVisible && (!isFullActionEntry || segFrac > HIDE_ABOVE)) {
+    overlayVisible = false;
+  }
+  document.getElementById('imageOverlay').classList.toggle('show', overlayVisible);
+}
+
+slider.addEventListener('input', () => {
+  update(slider.value / 1000);
+});
+
+playBtn.addEventListener('click', () => {
+  playing = !playing;
+  playBtn.textContent = playing ? '⏸ Pausar' : '▶ Auto-avance';
+  if (playing) {
+    playTimer = setInterval(() => {
+      let v = parseInt(slider.value) + 4;
+      if (v > 1000) v = 0;
+      slider.value = v;
+      update(v / 1000);
+    }, 80);
+  } else {
+    clearInterval(playTimer);
+  }
+});
+
+update(0);
+</script>
+
+</body>
+</html>
