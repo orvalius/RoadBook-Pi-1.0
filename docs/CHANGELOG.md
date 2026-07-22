@@ -618,3 +618,80 @@ Cierre del roadmap original de 12 sprints.
   vectoriales para hardware más potente (Pi 4/5), y tests
   automatizados de la capa Qt (actualmente no ejecutables en este
   entorno de desarrollo por falta de PyQt6/display).
+
+## [1.1.0] - Rediseño: Roadbook Rendering Engine
+
+Reemplaza el "visor de imágenes" simple del Sprint 6 por un motor de
+renderizado continuo, similar a los sistemas profesionales de rally
+raid (TripY, Rally Navigator): en vez de reaccionar solo a un waypoint
+puntual, la app ahora mantiene una tira de notas en vivo (estilo
+tulip), sincronizada con la posición GPS, junto al mapa.
+
+### Decisiones de arquitectura (acordadas antes de codear)
+
+- El origen de la ruta admite las dos opciones: un track GPX
+  configurado (`roadbook.gpx_path`) si existe, o conectar los
+  waypoints activos por `orden_ruta`/id como fallback.
+- El "odómetro virtual" usa distancia en línea recta (haversine) al
+  próximo punto, no proyección sobre la geometría real de la ruta —
+  decisión deliberada por simplicidad: no necesita que la ruta sea
+  precisa para funcionar.
+- El `NavigationEngine`/`EventEngine` (Sprints 2-8) quedan
+  **completamente intactos**: siguen disparando las secuencias de
+  acciones por radio, sin ningún cambio de comportamiento. El
+  `RoadbookEngine` es una capa nueva y complementaria, solo para
+  decidir qué mostrar en la tira — nunca dispara acciones.
+- Antes de tocar código real se armó un mockup interactivo en HTML
+  (`docs/mockups/roadbook_rendering_engine_mockup.html`) para validar
+  el layout y la interacción.
+
+### Agregado
+
+- `database/migrations/003_roadbook_engine.sql`: agrega `icono` y
+  `orden_ruta` a `waypoints` (solo columnas nuevas, nada existente se
+  toca ni pierde datos).
+- `core/route.py`: `parse_gpx()` (stdlib `xml.etree`, sin dependencias
+  nuevas), `order_waypoints_by_track()`, `order_waypoints_fallback()`,
+  `resolve_route_order()` — resuelve el orden de la ruta.
+- `core/roadbook_engine.py`: `build_entries()` (calcula distancias
+  parcial/total) + `RoadbookEngine` (avanza el puntero de progreso
+  ante cada posición GPS, calcula distancia al próximo y fracción de
+  avance del tramo actual). Lógica pura, sin Qt.
+- `ui/screens/roadbook_strip_widget.py`: `RoadbookStripWidget`, la
+  tira scrolleable real en PyQt6 — ícono + distancia parcial/total +
+  texto, entrada actual resaltada con su propia barra de progreso,
+  pasadas atenuadas, auto-scroll a la actual.
+- `ui/screens/navigation.py` rediseñado: mapa + tira lado a lado como
+  capa base, con el readout y el overlay de imagen del Event Engine
+  superpuestos exactamente como antes.
+- `ui/screens/waypoints.py`: el formulario ahora tiene selector de
+  ícono (`ICONO_CHOICES`) y campo de orden manual de ruta.
+- `main.py` / `ui/main_window.py`: arman el `RoadbookEngine` al
+  arrancar y lo reconstruyen automáticamente cada vez que se
+  crea/edita/borra/activa un waypoint (mismo mecanismo que ya recarga
+  el `NavigationEngine`).
+- Nueva clave de configuración `roadbook.gpx_path` (default `None`).
+- `docs/libro_de_ruta_rally_cordoba/importar_waypoints.py` actualizado:
+  los 14 waypoints reales del Rally de Córdoba ahora incluyen
+  `icono`/`orden_ruta`, sirviendo como demo real del Roadbook
+  Rendering Engine (verificado: arma una tira de ~96km coherente).
+- Tests: `test_route.py`, `test_roadbook_engine.py` — cubren parseo
+  GPX (válido, inexistente, XML inválido), ordenamiento por track y
+  por fallback, avance del motor, progreso dentro de un tramo, sin
+  fix GPS, fin de ruta, reset.
+
+### Compatibilidad
+
+- Ningún waypoint existente pierde datos: `icono` tiene default
+  `'generico'`, `orden_ruta` queda `NULL` (se ordena por id como
+  último recurso).
+- Instalaciones sin `roadbook.gpx_path` configurado siguen
+  funcionando exactamente igual, solo que la tira conecta los
+  waypoints activos por orden en vez de por un track real.
+
+### Notas
+
+- No se construyó todavía una UI para elegir/importar el archivo GPX
+  desde la app (hoy se edita `roadbook.gpx_path` a mano en
+  `config.json`) — queda como pulido posterior, igual que la gestión
+  de mapas offline mencionada en el release 1.0.0.

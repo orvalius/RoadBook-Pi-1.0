@@ -22,6 +22,8 @@ from core.map_manager import MapManager
 from core.navigation_engine import NavigationEngine
 from core.plugin_manager import PluginManager
 from core.resource_manager import ResourceManager
+from core.roadbook_engine import RoadbookEngine, build_entries
+from core.route import resolve_route_order
 from database.action_repository import ActionRepository
 from database.db_manager import DatabaseManager
 from database.waypoint_repository import WaypointRepository
@@ -66,7 +68,16 @@ def main() -> int:
     navigation_engine = NavigationEngine(
         heading_tolerance_degrees=config.get("navigation.heading_tolerance_degrees", 45.0)
     )
-    navigation_engine.load_waypoints(waypoint_repository.list_all(only_active=True))
+    active_waypoints = waypoint_repository.list_all(only_active=True)
+    navigation_engine.load_waypoints(active_waypoints)
+
+    # Roadbook Rendering Engine: arma la ruta (GPX si está configurado,
+    # si no, conectando los waypoints activos) y el motor que resuelve
+    # qué mostrar en la tira ante cada posición GPS.
+    ordered_waypoints = resolve_route_order(
+        active_waypoints, config.get("roadbook.gpx_path", None)
+    )
+    roadbook_engine = RoadbookEngine(build_entries(ordered_waypoints))
 
     action_dispatcher = ActionDispatcher()
     event_engine = EventEngine(
@@ -99,6 +110,7 @@ def main() -> int:
         config, waypoint_repository, navigation_engine, resource_manager, audio_manager,
         action_repository, plugin_manager,
         map_manager=map_manager,
+        roadbook_engine=roadbook_engine,
     )
     window.show()
     gps_adapter.position_received.connect(window.navigation_screen.update_position)

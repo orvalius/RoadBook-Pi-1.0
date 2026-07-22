@@ -42,6 +42,22 @@ from ui.screens.action_sequence_dialog import ActionSequenceDialog
 
 logger = get_logger(__name__)
 
+# Pictogramas disponibles para la tira del Roadbook Rendering Engine.
+# Los valores deben coincidir con las claves de ICON_MAP en
+# ui/screens/roadbook_strip_widget.py.
+ICONO_CHOICES = [
+    ("generico", "Genérico"),
+    ("curva_izq", "Curva a la izquierda"),
+    ("curva_der", "Curva a la derecha"),
+    ("peligro", "Peligro"),
+    ("vado", "Vado / agua"),
+    ("recta", "Recta"),
+    ("largada", "Largada"),
+    ("llegada", "Llegada"),
+    ("stop", "Stop"),
+    ("fuente", "Reabastecimiento"),
+]
+
 COLUMNS = ["ID", "Nombre", "Categoría", "Lat", "Lon", "Radio (m)", "Activo"]
 
 
@@ -97,6 +113,15 @@ class WaypointFormDialog(QDialog):
         self.prioridad_input = QSpinBox()
         self.prioridad_input.setRange(0, 100)
 
+        self.icono_selector = QComboBox()
+        for value, label in ICONO_CHOICES:
+            self.icono_selector.addItem(label, userData=value)
+
+        self.orden_ruta_input = QSpinBox()
+        self.orden_ruta_input.setRange(-1, 9999)
+        self.orden_ruta_input.setSpecialValueText("Sin definir (automático)")
+        self.orden_ruta_input.setValue(-1)
+
         self.activo_checkbox = QCheckBox("Waypoint activo")
         self.activo_checkbox.setChecked(True)
 
@@ -111,13 +136,16 @@ class WaypointFormDialog(QDialog):
         form.addRow("Imagen:", self.imagen_selector)
         form.addRow("Audio:", self.audio_selector)
         form.addRow("Prioridad:", self.prioridad_input)
+        form.addRow("Ícono en roadbook:", self.icono_selector)
+        form.addRow("Orden en la ruta:", self.orden_ruta_input)
         form.addRow("Descripción:", self.descripcion_input)
         form.addRow(self.activo_checkbox)
         form.addRow(self.re_triggerable_checkbox)
 
         hint = QLabel(
             "¿No aparece el recurso que buscás? Importalo primero desde "
-            "la pantalla de Biblioteca."
+            "la pantalla de Biblioteca. El orden en la ruta solo se usa "
+            "si no hay un track GPX configurado (ver Configuración)."
         )
         hint.setWordWrap(True)
         hint.setStyleSheet("color: palette(mid); font-size: 11px;")
@@ -143,6 +171,13 @@ class WaypointFormDialog(QDialog):
         self.descripcion_input.setPlainText(waypoint.descripcion or "")
         self.activo_checkbox.setChecked(waypoint.activo)
         self.re_triggerable_checkbox.setChecked(waypoint.re_triggerable)
+
+        icono_index = self.icono_selector.findData(waypoint.icono or "generico")
+        if icono_index >= 0:
+            self.icono_selector.setCurrentIndex(icono_index)
+        self.orden_ruta_input.setValue(
+            waypoint.orden_ruta if waypoint.orden_ruta is not None else -1
+        )
 
         if waypoint.imagen:
             filename = Path(waypoint.imagen).name
@@ -195,6 +230,10 @@ class WaypointFormDialog(QDialog):
             audio=audio,
             velocidad=self._waypoint.velocidad if self._waypoint else None,
             angulo=self._waypoint.angulo if self._waypoint else None,
+            icono=self.icono_selector.currentData(),
+            orden_ruta=(
+                self.orden_ruta_input.value() if self.orden_ruta_input.value() >= 0 else None
+            ),
         )
 
 

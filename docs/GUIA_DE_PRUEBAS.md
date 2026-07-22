@@ -2,7 +2,8 @@
 
 Esta guía te lleva de cero a ver la app corriendo con datos simulados
 (sin necesitar Raspberry Pi ni GPS real), y después a probar el flujo
-completo: waypoint → imagen/audio → evento.
+completo: waypoint → imagen/audio → evento, y la tira de roadbook en
+vivo (Roadbook Rendering Engine).
 
 ## 1. Requisitos previos
 
@@ -66,11 +67,13 @@ python main.py
 
 - Una ventana con un menú lateral (Navegación, Waypoints, Biblioteca,
   Configuración, Logs).
-- En "Navegación", un mapa gris con el texto "Sin mapa offline
-  cargado" (es normal — no incluimos ningún `.mbtiles`, ver el README
-  principal), y arriba la posición GPS actualizándose sola cada
-  segundo con coordenadas de Buenos Aires — eso es el backend
-  `simulator` funcionando.
+- En "Navegación", la pantalla dividida en dos: a la izquierda un mapa
+  gris con el texto "Sin mapa offline cargado" (es normal — no
+  incluimos ningún `.mbtiles`, ver el README principal); a la derecha
+  la tira de roadbook, con el texto "Sin ruta de roadbook activa"
+  hasta que crees algún waypoint. Arriba, superpuesta, la posición GPS
+  actualizándose sola cada segundo con coordenadas de Buenos Aires —
+  eso es el backend `simulator` funcionando.
 
 Si ves eso, el pipeline completo (GPS simulado → Navigation Engine →
 UI) ya está andando. Cerralo con `Ctrl+C` en la terminal o cerrando la
@@ -120,12 +123,67 @@ deberías ver:
 - El audio se reproduce.
 - Después de 5 segundos (configurable en
   `graphics.image_display_seconds`), la imagen se oculta sola.
+- La tira de roadbook, a la derecha, también resalta ese waypoint
+  como "actual" con su barra de progreso propia.
 
 Si el track simulado vuelve a pasar por ahí (se repite en loop), el
 evento se vuelve a disparar — a menos que hayas desmarcado "Puede
 volver a dispararse" al crear el waypoint.
 
-## 6. Probar secuencias de acciones custom
+## 6. Probar la tira de Roadbook (Roadbook Rendering Engine)
+
+Esta es la parte nueva: la tira de notas en vivo junto al mapa,
+similar a los sistemas de rally raid.
+
+### 6.1. Camino rápido: importar los waypoints reales del Rally de Córdoba
+
+El proyecto incluye un script con 14 waypoints reales (con
+coordenadas, imágenes y orden ya cargados) extraídos de un libro de
+ruta real:
+
+```bash
+python docs/libro_de_ruta_rally_cordoba/importar_waypoints.py
+```
+
+Andá a **Navegación**: la tira de la derecha debería mostrar los 14
+puntos en orden (Parque de Servicios → Shakedown → cada Prueba
+Especial → RZ Combustible), con distancias parcial/total en
+kilómetros. Como el GPS simulado no pasa por Córdoba, no vas a ver la
+nota "actual" avanzar sola — para eso, seguí el punto 6.2.
+
+### 6.2. Ver la tira avanzar en vivo
+
+Para que el motor avance de verdad necesitás que el track simulado
+del GPS pase cerca de tus waypoints. La forma más simple:
+
+1. Creá 3-4 waypoints con coordenadas cercanas a
+   `-34.6037, -58.3816` (el punto de partida del simulador), separados
+   por ~500-1000 metros entre sí.
+2. A cada uno asignale un **orden en la ruta** (0, 1, 2, 3...) desde el
+   formulario de edición — así el Roadbook Engine sabe en qué
+   secuencia mostrarlos (al no haber un track GPX configurado, usa
+   este campo).
+3. Opcionalmente, elegí un **ícono** distinto para cada uno (curva,
+   peligro, vado, etc.) para ver los pictogramas cambiar en la tira.
+4. Volvé a Navegación: deberías ver la nota actual resaltada en
+   naranja con su barra de progreso, las pasadas atenuadas, y
+   auto-scroll manteniendo la actual visible.
+
+### 6.3. Usar un track GPX propio (opcional, más fiel a un reconocimiento real)
+
+Si tenés un archivo `.gpx` grabado (por ejemplo, desde una app de
+tracking en tu celular durante un reconocimiento de caminos):
+
+1. Copialo a algún lugar del proyecto, ej: `resources/tracks/mi_recorrido.gpx`.
+2. En `config.json`, seteá:
+   ```json
+   "roadbook": { "gpx_path": "resources/tracks/mi_recorrido.gpx" }
+   ```
+3. Reiniciá la app. El Roadbook Engine va a ordenar tus waypoints
+   según su posición a lo largo de ese track, en vez de por el campo
+   "orden en la ruta".
+
+## 7. Probar secuencias de acciones custom
 
 En **Waypoints**, seleccioná el waypoint de prueba y tocá **Secuencia
 de acciones...**. Ahí podés armar tu propia secuencia (por ejemplo:
@@ -133,7 +191,7 @@ solo un log, o audio sin imagen, o varios pasos con esperas entre
 medio) en vez del comportamiento por defecto. Los cambios aplican al
 instante, sin reiniciar la app.
 
-## 7. Probar el plugin de ejemplo
+## 8. Probar el plugin de ejemplo
 
 1. Abrí `config.json` (se crea solo en la carpeta del proyecto la
    primera vez que corriste `main.py`).
@@ -149,22 +207,22 @@ instante, sin reiniciar la app.
 4. Cuando se dispare, revisá `logs/plugin_events.log` — debería
    aparecer una línea nueva con fecha/hora.
 
-## 8. Ver los logs
+## 9. Ver los logs
 
 - **En la app**: pestaña **Logs**, muestra las últimas líneas.
 - **En disco**: `logs/roadbook_pi.log` (rotativo, no crece sin límite).
 
-## 9. Correr los tests automatizados
+## 10. Correr los tests automatizados
 
 ```bash
 pytest
 ```
 
-Deberían pasar todos (son más de 150 tests entre lógica de negocio,
-GPS, base de datos, event engine, plugins, etc.). Si alguno falla,
-copiame el error y lo reviso.
+Deberían pasar todos (son más de 160 tests entre lógica de negocio,
+GPS, base de datos, event engine, plugins, roadbook engine, etc.). Si
+alguno falla, copiame el error y lo reviso.
 
-## 10. Usar GPS real (opcional)
+## 11. Usar GPS real (opcional)
 
 Cuando tengas la Raspberry Pi con un receptor NEO-6M/NEO-M8N conectado:
 
@@ -177,5 +235,7 @@ Cuando tengas la Raspberry Pi con un receptor NEO-6M/NEO-M8N conectado:
 |---|---|---|
 | No suena el audio | pygame no encontró dispositivo de audio | Revisá los logs; en Linux headless puede necesitar `sudo apt-get install libasound2` |
 | La imagen no aparece | Radio del waypoint muy chico, o coordenadas no coinciden con el track | Aumentá el radio, o revisá las coordenadas del track en `gps_manager.py` |
+| La tira de roadbook no avanza | El GPS simulado no pasa cerca de tus waypoints | Usá coordenadas cercanas al track simulado (ver 6.2), o cargá un GPX real |
+| La tira muestra "Sin ruta de roadbook activa" | No hay waypoints activos, o ninguno tiene `orden_ruta` ni hay GPX configurado | Creá al menos un waypoint activo; el orden por id ya alcanza para ver algo |
 | `ModuleNotFoundError` al arrancar | El entorno virtual no está activado | Volvé a correr `source .venv/bin/activate` (o el equivalente en Windows) antes de `python main.py` |
 | La ventana no aparece / crashea sin error visible | Revisá `logs/roadbook_pi.log`, ahí queda el traceback completo |

@@ -43,8 +43,8 @@ class WaypointRepository:
             INSERT INTO waypoints
                 (nombre, latitud, longitud, radio, categoria, imagen,
                  audio, velocidad, angulo, prioridad, descripcion,
-                 activo, re_triggerable)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 activo, re_triggerable, icono, orden_ruta)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 waypoint.nombre,
@@ -60,6 +60,8 @@ class WaypointRepository:
                 waypoint.descripcion,
                 int(waypoint.activo),
                 int(waypoint.re_triggerable),
+                waypoint.icono,
+                waypoint.orden_ruta,
             ),
         )
         conn.commit()
@@ -126,7 +128,7 @@ class WaypointRepository:
                 nombre = ?, latitud = ?, longitud = ?, radio = ?,
                 categoria = ?, imagen = ?, audio = ?, velocidad = ?,
                 angulo = ?, prioridad = ?, descripcion = ?, activo = ?,
-                re_triggerable = ?
+                re_triggerable = ?, icono = ?, orden_ruta = ?
             WHERE id = ?
             """,
             (
@@ -143,6 +145,8 @@ class WaypointRepository:
                 waypoint.descripcion,
                 int(waypoint.activo),
                 int(waypoint.re_triggerable),
+                waypoint.icono,
+                waypoint.orden_ruta,
                 waypoint.id,
             ),
         )

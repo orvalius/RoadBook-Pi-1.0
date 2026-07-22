@@ -33,7 +33,7 @@ def test_waypoints_table_has_expected_columns(tmp_path: Path) -> None:
     expected = {
         "id", "nombre", "latitud", "longitud", "radio", "categoria",
         "imagen", "audio", "velocidad", "angulo", "prioridad",
-        "descripcion", "activo", "re_triggerable",
+        "descripcion", "activo", "re_triggerable", "icono", "orden_ruta",
     }
     assert expected.issubset(columns)
 

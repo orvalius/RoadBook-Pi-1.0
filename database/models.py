@@ -31,6 +31,13 @@ class Waypoint:
         re_triggerable: Si es True, el evento puede volver a dispararse
             en cada re-entrada al radio. Si es False, se dispara una
             única vez por sesión.
+        icono: Pictograma a mostrar en la tira del Roadbook Rendering
+            Engine (ej: "curva_izq", "peligro", "vado", "largada").
+            Puramente visual, no afecta el disparo de eventos.
+        orden_ruta: Posición manual de este waypoint dentro de la ruta
+            del roadbook, cuando no hay un track GPX que determine el
+            orden automáticamente. None = sin definir (se ordena por
+            id de creación como último recurso).
     """
 
     nombre: str
@@ -46,6 +53,8 @@ class Waypoint:
     descripcion: str | None = None
     activo: bool = True
     re_triggerable: bool = True
+    icono: str = "generico"
+    orden_ruta: int | None = None
     id: int | None = None
 
     @classmethod
@@ -73,6 +82,8 @@ class Waypoint:
             descripcion=row["descripcion"],
             activo=bool(row["activo"]),
             re_triggerable=bool(row["re_triggerable"]),
+            icono=row["icono"] if "icono" in row.keys() else "generico",
+            orden_ruta=row["orden_ruta"] if "orden_ruta" in row.keys() else None,
         )
 
 

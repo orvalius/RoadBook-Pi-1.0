@@ -24,6 +24,8 @@ from core.map_manager import MapManager
 from core.navigation_engine import NavigationEngine
 from core.plugin_manager import PluginManager
 from core.resource_manager import ResourceManager
+from core.roadbook_engine import RoadbookEngine, build_entries
+from core.route import resolve_route_order
 from database.action_repository import ActionRepository
 from database.waypoint_repository import WaypointRepository
 from ui.screens.library import LibraryScreen
@@ -54,6 +56,7 @@ class MainWindow(QMainWindow):
         action_repository: ActionRepository,
         plugin_manager: PluginManager,
         map_manager: MapManager | None = None,
+        roadbook_engine: RoadbookEngine | None = None,
     ) -> None:
         super().__init__()
         self.config = config
@@ -64,6 +67,7 @@ class MainWindow(QMainWindow):
         self.action_repository = action_repository
         self.plugin_manager = plugin_manager
         self.map_manager = map_manager
+        self.roadbook_engine = roadbook_engine
 
         self.setWindowTitle(self.config.get("app_name", "RoadBook Pi"))
         width = self.config.get("display.width", 800)
@@ -91,6 +95,7 @@ class MainWindow(QMainWindow):
             map_zoom=self.config.get("maps.default_zoom", 15),
             map_redraw_threshold_meters=self.config.get("maps.redraw_threshold_meters", 20.0),
             image_display_seconds=self.config.get("graphics.image_display_seconds", 5.0),
+            roadbook_engine=self.roadbook_engine,
         )
         self.stack.addWidget(self.navigation_screen)
         self.stack.addWidget(
@@ -122,15 +127,24 @@ class MainWindow(QMainWindow):
             logger.debug("Pantalla cambiada a: %s", SCREEN_NAMES[index])
 
     def _reload_navigation_waypoints(self) -> None:
-        """Recarga los waypoints activos en el NavigationEngine.
+        """Recarga los waypoints activos en el NavigationEngine y reconstruye
+        la ruta del RoadbookEngine.
 
         Se invoca cada vez que la UI crea, edita, borra o activa/
-        desactiva un waypoint, para que el motor de navegación siempre
-        vigile el conjunto correcto sin reiniciar la aplicación.
+        desactiva un waypoint, para que tanto el disparo de eventos
+        como la tira de roadbook reflejen siempre el conjunto correcto,
+        sin reiniciar la aplicación.
         """
         waypoints = self.waypoint_repository.list_all(only_active=True)
         self.navigation_engine.load_waypoints(waypoints)
         logger.info("NavigationEngine recargado con %d waypoints activos", len(waypoints))
+
+        gpx_path = self.config.get("roadbook.gpx_path", None)
+        ordered = resolve_route_order(waypoints, gpx_path)
+        entries = build_entries(ordered)
+        self.roadbook_engine = RoadbookEngine(entries)
+        self.navigation_screen.set_roadbook_engine(self.roadbook_engine)
+        logger.info("RoadbookEngine reconstruido con %d entradas", len(entries))
 
     def handle_action(self, action_type: ActionType, payload: dict) -> None:
         """Ejecuta la reacción de UI/Audio para una acción despachada.

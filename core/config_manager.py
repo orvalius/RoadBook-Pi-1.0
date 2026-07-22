@@ -17,7 +17,7 @@ logger = get_logger(__name__)
 
 DEFAULT_CONFIG: dict[str, Any] = {
     "app_name": "RoadBook Pi",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "language": "es",
     "gps": {
         "backend": "simulator",
@@ -54,6 +54,9 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "plugins": {
         "directory": "plugins",
         "enabled": [],
+    },
+    "roadbook": {
+        "gpx_path": None,
     },
 }
 

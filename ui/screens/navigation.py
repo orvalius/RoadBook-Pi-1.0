@@ -1,16 +1,25 @@
 """Pantalla de Navegación (modo conducción).
 
-Muestra únicamente información esencial durante la conducción, según
-la especificación. Tres capas superpuestas (de abajo hacia arriba):
+Rediseño del Graphic Engine (Sprint 6) como **Roadbook Rendering
+Engine**: en vez de limitarse a mostrar/ocultar una imagen puntual,
+la pantalla ahora tiene una tira de roadbook continua (estilo rally
+raid) que se renderiza en vivo junto al mapa, sincronizada con la
+posición GPS.
 
-1. Mapa offline (MBTiles), centrado en la posición GPS actual.
-2. Readout de posición/velocidad/rumbo (semi-transparente).
+Capas (de abajo hacia arriba):
+
+1. Fila principal: mapa offline (izquierda) + tira de roadbook
+   (derecha) — el "split" característico de un navegador de rally.
+2. Readout de posición/velocidad/rumbo (semi-transparente), superpuesto.
 3. Overlay de imagen que dispara un waypoint al ser alcanzado
-   (Graphic Engine, Sprint 6), tapa todo lo demás mientras está activo.
+   (Event Engine, Sprint 8), sin cambios: sigue siendo una acción más
+   entre varias, ahora coexistiendo con la tira en vez de ser el
+   centro del sistema.
 
-El escalado de imágenes usa ``core.graphic_utils.compute_scaled_size``
-(lógica pura, testeable) para preservar el aspect ratio en cualquier
-resolución de pantalla (TFT HDMI, TFT DSI, HDMI estándar).
+Importante: el ``RoadbookEngine`` (qué mostrar en la tira, avance
+secuencial) es independiente del ``NavigationEngine``/``EventEngine``
+(qué acciones disparar). Esta pantalla no dispara ninguna acción por
+sí misma; solo visualiza.
 """
 
 from __future__ import annotations
@@ -20,14 +29,16 @@ from pathlib import Path
 
 from PyQt6.QtCore import Qt, QTimer, pyqtSlot
 from PyQt6.QtGui import QPixmap
-from PyQt6.QtWidgets import QLabel, QStackedLayout, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QHBoxLayout, QLabel, QStackedLayout, QVBoxLayout, QWidget
 
 from core.gps_manager import GpsPosition
 from core.graphic_utils import compute_scaled_size
 from core.logger import get_logger
 from core.map_manager import MapManager
+from core.roadbook_engine import RoadbookEngine
 from core.time_format import format_duration_seconds
 from ui.screens.map_widget import MapWidget
+from ui.screens.roadbook_strip_widget import RoadbookStripWidget
 
 logger = get_logger(__name__)
 
@@ -43,10 +54,12 @@ class NavigationScreen(QWidget):
         map_zoom: int = 15,
         map_redraw_threshold_meters: float = 20.0,
         image_display_seconds: float = DEFAULT_IMAGE_DISPLAY_SECONDS,
+        roadbook_engine: RoadbookEngine | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self.image_display_seconds = image_display_seconds
+        self.roadbook_engine = roadbook_engine
         self._current_pixmap: QPixmap | None = None
         self._last_fix_time: float | None = None
         self._hide_timer = QTimer(self)
@@ -54,6 +67,9 @@ class NavigationScreen(QWidget):
         self._hide_timer.timeout.connect(self.hide_image)
 
         self._build_ui(map_manager, map_zoom, map_redraw_threshold_meters)
+
+        if self.roadbook_engine is not None:
+            self.roadbook_strip.set_entries(self.roadbook_engine.entries)
 
     def _build_ui(
         self,
@@ -67,10 +83,19 @@ class NavigationScreen(QWidget):
         self._overlay_layout = QStackedLayout(self._overlay_container)
         self._overlay_layout.setStackingMode(QStackedLayout.StackingMode.StackAll)
 
-        # Capa 1 (fondo): mapa offline
+        # Capa 1 (fondo): mapa + tira de roadbook, lado a lado
+        main_split = QWidget()
+        split_layout = QHBoxLayout(main_split)
+        split_layout.setContentsMargins(0, 0, 0, 0)
+        split_layout.setSpacing(0)
+
         self.map_widget = MapWidget(
             map_manager, zoom=map_zoom, redraw_threshold_meters=map_redraw_threshold_meters
         )
+        self.roadbook_strip = RoadbookStripWidget()
+
+        split_layout.addWidget(self.map_widget, 3)  # 1.5fr aprox
+        split_layout.addWidget(self.roadbook_strip, 2)  # 1fr aprox
 
         # Capa 2: readout de texto, con fondo transparente para dejar ver el mapa
         readout_widget = QWidget()
@@ -98,26 +123,38 @@ class NavigationScreen(QWidget):
         readout_layout.addWidget(self.detail_label)
         readout_layout.addStretch()
 
-        # Capa 3 (frente): overlay de imagen de waypoints
+        # Capa 3 (frente): overlay de imagen de waypoints (Event Engine)
         self.image_label = QLabel()
         self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.image_label.setStyleSheet("background-color: black;")
         self.image_label.hide()
 
-        self._overlay_layout.addWidget(self.map_widget)
+        self._overlay_layout.addWidget(main_split)
         self._overlay_layout.addWidget(readout_widget)
         self._overlay_layout.addWidget(self.image_label)
 
         outer_layout.addWidget(self._overlay_container)
 
+    def set_roadbook_engine(self, roadbook_engine: RoadbookEngine | None) -> None:
+        """Reemplaza el motor de roadbook activo (ej: al cargar otra ruta).
+
+        Args:
+            roadbook_engine: Nuevo motor, o None para vaciar la tira.
+        """
+        self.roadbook_engine = roadbook_engine
+        entries = roadbook_engine.entries if roadbook_engine is not None else []
+        self.roadbook_strip.set_entries(entries)
+
     @pyqtSlot(object)
     def update_position(self, position: GpsPosition) -> None:
-        """Actualiza el readout y el mapa con la posición GPS más reciente.
+        """Actualiza el readout, el mapa y la tira de roadbook con la posición GPS.
 
         Se conecta típicamente a ``QtGpsAdapter.position_received``.
         Al estar conectado desde un QWidget viviendo en el hilo
         principal, Qt encola automáticamente la entrega en ese hilo
-        aunque la señal se emita desde el hilo del GPS.
+        aunque la señal se emita desde el hilo del GPS. El
+        ``RoadbookEngine`` se actualiza acá mismo, siempre en el hilo
+        principal, sin necesitar un adapter propio.
 
         Args:
             position: Última posición GPS conocida.
@@ -142,6 +179,10 @@ class NavigationScreen(QWidget):
             f"Velocidad: {position.speed:.0f} km/h    Rumbo: {heading_text}"
         )
         self.map_widget.update_center(position.latitude, position.longitude)
+
+        if self.roadbook_engine is not None:
+            state = self.roadbook_engine.update_position(position)
+            self.roadbook_strip.update_state(state)
 
     def show_image(
         self,

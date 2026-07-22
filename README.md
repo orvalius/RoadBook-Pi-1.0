@@ -1,21 +1,24 @@
 # RoadBook Pi
 
-**v1.0.0** — Plataforma de navegación basada en eventos geográficos
+**v1.1.0** — Plataforma de navegación basada en eventos geográficos
 para Raspberry Pi.
 
 No es un GPS tradicional: ejecuta acciones automáticamente (mostrar
 imagen, reproducir audio, registrar eventos, ejecutar plugins) cuando
-el vehículo llega a una posición determinada. Pensado para roadbooks
-de rally, turismo guiado, rutas educativas, o cualquier recorrido
-donde quieras disparar contenido en puntos geográficos específicos,
-funcionando completamente offline.
+el vehículo llega a una posición determinada, y muestra una tira de
+roadbook en vivo (Roadbook Rendering Engine) sincronizada con el GPS,
+similar a los sistemas de navegación de rally raid. Pensado para
+roadbooks de rally, turismo guiado, rutas educativas, o cualquier
+recorrido donde quieras disparar contenido en puntos geográficos
+específicos, funcionando completamente offline.
 
 Licencia: [MIT](LICENSE).
 
 ## Estado
 
-Los 12 sprints del roadmap original están completos. Ver
-`docs/CHANGELOG.md` para el detalle de cada uno.
+Los 12 sprints del roadmap original están completos, más un
+rediseño posterior del Graphic Engine (Sprint 6) como Roadbook
+Rendering Engine. Ver `docs/CHANGELOG.md` para el detalle de cada uno.
 
 | Sprint | Descripción         | Estado        |
 |--------|----------------------|----------------|
@@ -24,7 +27,7 @@ Los 12 sprints del roadmap original están completos. Ver
 | 3      | GPS                     | ✅ |
 | 4      | Navigation Engine       | ✅ |
 | 5      | Resource Library        | ✅ |
-| 6      | Graphic Engine          | ✅ |
+| 6      | Graphic Engine          | ✅ (rediseñado como Roadbook Rendering Engine, ver v1.1.0) |
 | 7      | Offline Maps            | ✅ |
 | 8      | Event Engine            | ✅ |
 | 9      | Plugins                 | ✅ |
@@ -34,6 +37,11 @@ Los 12 sprints del roadmap original están completos. Ver
 
 ## Funcionalidad
 
+- **Roadbook Rendering Engine**: tira de notas en vivo (estilo tulip
+  de rally raid) junto al mapa, sincronizada con la posición GPS —
+  ícono, distancia parcial/total, texto de instrucción, con la nota
+  actual resaltada y auto-scroll. Independiente del disparo de
+  eventos: solo visualiza.
 - **Waypoints con condiciones**: radio de disparo, velocidad mínima,
   rumbo de aproximación, re-disparo o disparo único por sesión.
 - **Secuencias de acciones configurables** por waypoint: mostrar
@@ -52,7 +60,15 @@ Los 12 sprints del roadmap original están completos. Ver
 
 ```
 GPS → Navigation Engine → Event Engine → Action Dispatcher → UI / Audio / Logger / Plugins
+GPS → Roadbook Engine → tira de roadbook (UI)
 ```
+
+Dos ramas independientes que comparten la misma posición GPS: la
+primera dispara acciones por radio (sin cambios desde el Sprint 8); la
+segunda solo decide qué mostrar en la tira de notas en vivo, avanzando
+secuencialmente sobre una ruta armada desde un track GPX o
+conectando waypoints por orden. Ninguna de las dos dispara nada de la
+otra.
 
 La UI nunca se conecta directamente al GPS ni a la base de datos: todo
 pasa por el Core. MVC se aplica solo dentro de la capa UI; el Core es
@@ -116,10 +132,28 @@ primer arranque). Claves principales:
 - `gps.backend`: `"gpsd"`, `"serial"` o `"simulator"`.
 - `maps.mbtiles_path`: ruta a un archivo `.mbtiles` propio (no se
   incluye ninguno — ver nota abajo).
+- `roadbook.gpx_path`: ruta a un track GPX propio para ordenar la tira
+  del roadbook (opcional — ver sección siguiente).
 - `plugins.enabled`: lista de nombres de plugins a cargar desde
   `plugins/`.
 - `navigation.heading_tolerance_degrees`, `graphics.image_display_seconds`,
   `audio.volume`: ajustes finos de comportamiento.
+
+### Roadbook Rendering Engine
+
+La tira de notas junto al mapa conecta los waypoints **activos** en
+un orden determinado así:
+
+1. Si `roadbook.gpx_path` apunta a un track GPX válido, ordena los
+   waypoints según su posición a lo largo de ese track.
+2. Si no, ordena por el campo `orden_ruta` de cada waypoint (editable
+   desde el formulario de Waypoints), y como último recurso, por id
+   de creación.
+
+La distancia parcial/total que se muestra es en línea recta entre
+puntos consecutivos, no proyectada sobre la geometría real de la
+ruta — una simplificación deliberada para que funcione sin necesitar
+un track preciso.
 
 ### Mapas offline
 
