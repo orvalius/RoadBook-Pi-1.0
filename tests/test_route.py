@@ -104,3 +104,14 @@ def test_resolve_route_order_uses_gpx_when_valid(tmp_path: Path) -> None:
     resolved = resolve_route_order([wp_a, wp_b], gpx_path)
 
     assert [w.nombre for w in resolved] == ["B", "A"]
+
+
+def test_resolve_route_returns_track(tmp_path: Path) -> None:
+    from core.route import resolve_route
+
+    gpx_path = tmp_path / "track.gpx"
+    gpx_path.write_text(GPX_SAMPLE, encoding="utf-8")
+    wps = [Waypoint(id=1, nombre="A", latitud=-31.6, longitud=-64.3)]
+    ordered, track = resolve_route(wps, gpx_path)
+    assert ordered == wps and len(track) == 3
+    assert resolve_route(wps, None) == (wps, [])

@@ -27,6 +27,7 @@ from dataclasses import dataclass
 from core.gps_manager import GpsPosition
 from core.logger import get_logger
 from core.navigation_engine import NavigationEngine
+from core.turns import Turn, compute_turns
 from database.models import Waypoint
 
 logger = get_logger(__name__)
@@ -43,12 +44,16 @@ class RoadbookEntry:
         distancia_parcial_m: Distancia en línea recta desde la entrada
             anterior (0 si es la primera).
         distancia_total_m: Distancia acumulada desde el inicio de la ruta.
+        giro: Para qué lado dobla la ruta en esta nota y cuántos grados
+            (ver ``core.turns``). None en la largada, la llegada, o si
+            no hay geometría suficiente para calcularlo.
     """
 
     waypoint: Waypoint
     orden: int
     distancia_parcial_m: float
     distancia_total_m: float
+    giro: Turn | None = None
 
 
 @dataclass
@@ -74,17 +79,25 @@ class RoadbookState:
     distance_traveled_m: float
 
 
-def build_entries(ordered_waypoints: list[Waypoint]) -> list[RoadbookEntry]:
+def build_entries(
+    ordered_waypoints: list[Waypoint],
+    track: list[tuple[float, float]] | None = None,
+) -> list[RoadbookEntry]:
     """Construye la lista de ``RoadbookEntry`` a partir de waypoints ya ordenados.
 
     Args:
         ordered_waypoints: Waypoints ya en el orden final de la ruta
             (ver ``core.route.resolve_route_order``).
+        track: Puntos del track GPX activo, si hay. Mejora el cálculo de
+            los giros (ver ``core.turns``); no cambia las distancias.
 
     Returns:
         Entradas con distancia parcial/total calculadas (línea recta
         entre waypoints consecutivos).
     """
+    turns = compute_turns(
+        [(wp.latitud, wp.longitud) for wp in ordered_waypoints], track
+    )
     entries: list[RoadbookEntry] = []
     total = 0.0
     previous: Waypoint | None = None
@@ -104,6 +117,7 @@ def build_entries(ordered_waypoints: list[Waypoint]) -> list[RoadbookEntry]:
                 orden=i,
                 distancia_parcial_m=parcial,
                 distancia_total_m=total,
+                giro=turns[i],
             )
         )
         previous = wp

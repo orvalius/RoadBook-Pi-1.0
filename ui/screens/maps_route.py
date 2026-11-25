@@ -42,6 +42,7 @@ from PyQt6.QtWidgets import (
 
 from core.config_manager import ConfigManager
 from core.logger import get_logger
+from core.map_generator import RouteMap, generate_mbtiles
 from core.map_manager import InvalidMbtilesError, MbtilesInfo, inspect_mbtiles
 from core.resource_manager import ResourceManager
 from core.route import GpxInfo, InvalidGpxError, inspect_gpx
@@ -56,6 +57,8 @@ NO_ROUTE_LABEL = "(sin GPX: ordenar por waypoints)"
 FilePicker = Callable[[QWidget, str, str], str]
 MapChangeCallback = Callable[[str | None, MbtilesInfo | None], None]
 RouteChangeCallback = Callable[[str | None], None]
+RouteProvider = Callable[[], RouteMap | None]
+GENERATED_MAP = "ruta_generada.mbtiles"
 
 
 def _default_file_picker(parent: QWidget, title: str, file_filter: str) -> str:
@@ -132,19 +135,40 @@ class _ImportWorker(QObject):
             raise _CopyCancelled
         self.progress.emit(int(copied * 100 / total) if total else 100)
 
+    def _work(self) -> str:
+        return self._resource_manager.import_resource(
+            self._source, self._category, progress=self._on_progress
+        )
+
     def _run(self) -> None:
         try:
-            relative = self._resource_manager.import_resource(
-                self._source, self._category, progress=self._on_progress
-            )
+            relative = self._work()
         except _CopyCancelled:
-            logger.info("Importación cancelada: %s", self._source)
+            logger.info("Tarea cancelada: %s", self._source)
             self.failed.emit("")
         except Exception as exc:  # noqa: BLE001 - se informa en la UI
-            logger.exception("Error importando %s", self._source)
+            logger.exception("Error en tarea de fondo: %s", self._source)
             self.failed.emit(str(exc))
         else:
             self.finished.emit(relative)
+
+
+class _GenerateWorker(_ImportWorker):
+    """Genera el mapa de la ruta en segundo plano (mismo protocolo de señales)."""
+
+    def __init__(
+        self, resource_manager: ResourceManager, route: RouteMap, relative: str
+    ) -> None:
+        super().__init__(resource_manager, relative, "maps")
+        self._route = route
+
+    def _work(self) -> str:
+        generate_mbtiles(
+            self._resource_manager.resolve_relative_path(self._source),
+            self._route,
+            progress=self._on_progress,
+        )
+        return self._source
 
 
 class MapsRouteScreen(QWidget):
@@ -161,6 +185,7 @@ class MapsRouteScreen(QWidget):
         on_map_change: MapChangeCallback,
         on_route_change: RouteChangeCallback,
         file_picker: FilePicker | None = None,
+        route_provider: RouteProvider | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -169,6 +194,7 @@ class MapsRouteScreen(QWidget):
         self._on_map_change = on_map_change
         self._on_route_change = on_route_change
         self._pick_file = file_picker or _default_file_picker
+        self._route_provider = route_provider
         self._import_worker: _ImportWorker | None = None
         self._progress_dialog: QProgressDialog | None = None
         self._build_ui()
@@ -191,7 +217,19 @@ class MapsRouteScreen(QWidget):
         self.map_apply_button.clicked.connect(self._apply_selected_map)
         map_layout.addWidget(self.map_combo)
         map_layout.addWidget(self.map_info_label)
-        map_layout.addLayout(_button_row(self.map_import_button, self.map_apply_button))
+        self.map_generate_button = QPushButton("Generar desde la ruta")
+        self.map_generate_button.setToolTip(
+            "Arma un mapa ilustrativo de la zona de la ruta (no es cartografía real)"
+        )
+        self.map_generate_button.clicked.connect(self._generate_map)
+        self.map_generate_button.setVisible(self._route_provider is not None)
+        map_layout.addLayout(
+            _button_row(
+                self.map_import_button,
+                self.map_generate_button,
+                self.map_apply_button,
+            )
+        )
 
         route_box = QGroupBox("Track de la ruta (.gpx)")
         route_layout = QVBoxLayout(route_box)
@@ -307,6 +345,24 @@ class MapsRouteScreen(QWidget):
             return
         self._start_import(source, "maps", info.size_bytes)
 
+    def _generate_map(self) -> None:
+        route = self._route_provider() if self._route_provider else None
+        if route is None or not (route.line or route.notes):
+            self._set_status("No hay waypoints activos para generar el mapa.")
+            return
+        relative = self.resource_manager.to_relative_path("maps", GENERATED_MAP)
+        if self.config.get("maps.mbtiles_path", None) == relative:
+            # Soltar el archivo activo antes de reemplazarlo (en Windows,
+            # un archivo abierto no se puede pisar).
+            self._on_map_change(None, None)
+        worker = _GenerateWorker(self.resource_manager, route, relative)
+        self._start_job(
+            worker,
+            "Generando el mapa de la ruta…",
+            "Generando mapa",
+            "Generando mapa…",
+        )
+
     # ----------------------------------------------------------- Ruta
 
     def _show_selected_route_info(self) -> None:
@@ -365,19 +421,23 @@ class MapsRouteScreen(QWidget):
 
     def _start_import(self, source: str, category: str, size_bytes: int) -> None:
         worker = _ImportWorker(self.resource_manager, source, category)
+        self._start_job(
+            worker,
+            f"Copiando {Path(source).name} ({format_size(size_bytes)})…",
+            "Importando mapa",
+            "Importando mapa…",
+        )
+
+    def _start_job(
+        self, worker: _ImportWorker, label: str, title: str, status: str
+    ) -> None:
         worker.finished.connect(self._on_map_import_finished)
         worker.failed.connect(self._on_import_failed)
         self._import_worker = worker
         self._set_import_buttons_enabled(False)
 
-        dialog = QProgressDialog(
-            f"Copiando {Path(source).name} ({format_size(size_bytes)})…",
-            "Cancelar",
-            0,
-            100,
-            self,
-        )
-        dialog.setWindowTitle("Importando mapa")
+        dialog = QProgressDialog(label, "Cancelar", 0, 100, self)
+        dialog.setWindowTitle(title)
         dialog.setWindowModality(Qt.WindowModality.WindowModal)
         dialog.setMinimumDuration(500)
         dialog.setAutoClose(False)
@@ -386,7 +446,7 @@ class MapsRouteScreen(QWidget):
         worker.progress.connect(dialog.setValue)
         self._progress_dialog = dialog
 
-        self._set_status("Importando mapa…")
+        self._set_status(status)
         worker.start()
 
     def _end_import(self) -> None:
@@ -405,14 +465,15 @@ class MapsRouteScreen(QWidget):
     def _on_import_failed(self, message: str) -> None:
         self._end_import()
         if message:
-            self._set_status(f"Error importando: {message}")
-            QMessageBox.warning(self, "No se pudo importar", message)
+            self._set_status(f"Error: {message}")
+            QMessageBox.warning(self, "No se pudo completar", message)
         else:
-            self._set_status("Importación cancelada.")
+            self._set_status("Cancelado.")
 
     def _set_import_buttons_enabled(self, enabled: bool) -> None:
         for button in (
             self.map_import_button,
+            self.map_generate_button,
             self.map_apply_button,
             self.route_import_button,
             self.route_apply_button,

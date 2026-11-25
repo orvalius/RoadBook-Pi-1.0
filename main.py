@@ -23,7 +23,7 @@ from core.navigation_engine import NavigationEngine
 from core.plugin_manager import PluginManager
 from core.resource_manager import ResourceManager
 from core.roadbook_engine import RoadbookEngine, build_entries
-from core.route import resolve_route_order
+from core.route import resolve_route
 from database.action_repository import ActionRepository
 from database.db_manager import DatabaseManager
 from database.waypoint_repository import WaypointRepository
@@ -81,11 +81,11 @@ def main() -> int:
     # si no, conectando los waypoints activos) y el motor que resuelve
     # qué mostrar en la tira ante cada posición GPS.
     gpx_path = config.get("roadbook.gpx_path", None)
-    ordered_waypoints = resolve_route_order(
+    ordered_waypoints, track = resolve_route(
         active_waypoints,
         resource_manager.resolve_relative_path(gpx_path) if gpx_path else None,
     )
-    roadbook_engine = RoadbookEngine(build_entries(ordered_waypoints))
+    roadbook_engine = RoadbookEngine(build_entries(ordered_waypoints, track))
 
     action_dispatcher = ActionDispatcher()
     event_engine = EventEngine(

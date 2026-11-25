@@ -182,6 +182,35 @@ def order_waypoints_fallback(waypoints: list[Waypoint]) -> list[Waypoint]:
     return sorted(waypoints, key=sort_key)
 
 
+def resolve_route(
+    waypoints: list[Waypoint], gpx_path: str | Path | None
+) -> tuple[list[Waypoint], list[tuple[float, float]]]:
+    """Resuelve el orden de la ruta y devuelve también el track usado.
+
+    El track se devuelve para que ``build_entries`` calcule los giros
+    sobre la geometría real del camino sin volver a leer el GPX.
+
+    Args:
+        waypoints: Waypoints activos a incluir en la ruta.
+        gpx_path: Ruta a un archivo GPX, o None/vacío.
+
+    Returns:
+        (waypoints ordenados, puntos del track). El track es una lista
+        vacía si no hay GPX o no tiene puntos válidos.
+    """
+    if gpx_path:
+        track = parse_gpx(gpx_path)
+        if track:
+            return order_waypoints_by_track(waypoints, track), track
+        logger.warning(
+            "Route: gpx_path configurado (%s) pero sin puntos válidos, "
+            "usando orden fallback",
+            gpx_path,
+        )
+
+    return order_waypoints_fallback(waypoints), []
+
+
 def resolve_route_order(
     waypoints: list[Waypoint], gpx_path: str | Path | None
 ) -> list[Waypoint]:
@@ -196,14 +225,4 @@ def resolve_route_order(
         Waypoints ordenados, listos para pasar a
         ``core.roadbook_engine.build_entries``.
     """
-    if gpx_path:
-        track = parse_gpx(gpx_path)
-        if track:
-            return order_waypoints_by_track(waypoints, track)
-        logger.warning(
-            "Route: gpx_path configurado (%s) pero sin puntos válidos, "
-            "usando orden fallback",
-            gpx_path,
-        )
-
-    return order_waypoints_fallback(waypoints)
+    return resolve_route(waypoints, gpx_path)[0]

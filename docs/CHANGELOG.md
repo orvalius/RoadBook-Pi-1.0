@@ -765,3 +765,55 @@ tulip), sincronizada con la posición GPS, junto al mapa.
   systemd).
 - Soporte de tiles vectoriales para Pi 4/5 (candidato a v1.3).
 
+## [1.3.0] - Tulipas, vehículo en el mapa y mapas generados
+
+### Agregado
+
+- **Lado y ángulo de cada giro** (`core/turns.py`): para cada nota de
+  la ruta, el cambio de rumbo con signo, el lado (izquierda / derecha /
+  recto), los grados redondeados a 5° y una escala orientativa (suave,
+  media, cerrada, horquilla). Con un track GPX activo se mide sobre la
+  curva real del camino (unos 120 m antes y después de la nota); sin
+  GPX, entre los tramos rectos que unen las notas. Notas superpuestas
+  (dos largadas en el mismo punto) se resuelven contra el siguiente
+  punto realmente distinto. `RoadbookEntry.giro`.
+- **Tulipas en la tira** (`ui/screens/tulip_widget.py`): pictograma de
+  rally dibujado con QPainter (entrada desde abajo, salida curva con el
+  ángulo real; las horquillas vuelven en paralelo) y el texto del giro
+  en cada fila. Arriba, **tarjeta de próxima curva** con tulipa grande,
+  giro, severidad y distancia que falta.
+- **Mapa en vivo** (`ui/screens/map_widget.py`): ruta, notas (la
+  próxima resaltada y numerada) y vehículo con su rumbo, dibujados
+  encima de los tiles en cada posición GPS. Los tiles se recomponen
+  solo cuando el vehículo entra en el margen del 20% del borde, con el
+  centro adelantado en la dirección de marcha. Sin mapa offline se
+  dibujan igual la ruta y el vehículo sobre fondo liso.
+- `core/map_compositor.py`: `MapViewport` (coordenadas ↔ píxeles) y
+  `look_ahead_center`.
+- **Generador de mapas offline** (`core/map_generator.py`,
+  `tools/generar_mapa_ruta.py` y botón "Generar desde la ruta" en
+  **Mapas y ruta**): `.mbtiles` raster de la zona de la ruta con
+  relieve ilustrativo continuo entre tiles y zooms, curvas de nivel,
+  cuadrícula, el camino (track GPX o tramos entre notas) y los nombres
+  de las notas sin superponerse. Los metadatos aclaran que no es
+  cartografía real. Nueva dependencia: `numpy`.
+
+### Cambiado
+
+- La lectura de posición/velocidad pasó a una barra abajo, sobre el
+  ancho del mapa: ya no tapa la tira ni el vehículo.
+- `core.route.resolve_route()` devuelve el orden y el track usado.
+
+### Corregido
+
+- Vaciar la ruta destruía el cartel "Sin ruta de roadbook activa" y al
+  volver a vaciarla se intentaba mostrar un widget ya destruido.
+- Distancias "345 m" se mostraban como "340 m" (redondeo al par).
+
+### Tests
+
+- 238 → 293: giros, viewport, generador (continuidad entre tiles,
+  metadatos, cancelación), tulipa (lado de la flecha por píxeles),
+  tarjeta de próxima curva, vehículo y ruta en el mapa, recompuesto
+  solo cerca del borde, botón de generar mapa.
+

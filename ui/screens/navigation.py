@@ -42,6 +42,12 @@ from ui.screens.roadbook_strip_widget import RoadbookStripWidget
 
 logger = get_logger(__name__)
 
+
+def _route_points(entries: list) -> list[tuple[float, float]]:
+    """Posiciones de las notas de la ruta, en orden, para dibujar en el mapa."""
+    return [(e.waypoint.latitud, e.waypoint.longitud) for e in entries]
+
+
 DEFAULT_IMAGE_DISPLAY_SECONDS = 5.0
 
 
@@ -70,6 +76,7 @@ class NavigationScreen(QWidget):
 
         if self.roadbook_engine is not None:
             self.roadbook_strip.set_entries(self.roadbook_engine.entries)
+            self.map_widget.set_route(_route_points(self.roadbook_engine.entries))
 
     def _build_ui(
         self,
@@ -103,7 +110,17 @@ class NavigationScreen(QWidget):
         readout_widget = QWidget()
         readout_widget.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         readout_widget.setStyleSheet("background: transparent;")
-        readout_layout = QVBoxLayout(readout_widget)
+        # Barra de lectura abajo y solo sobre la columna del mapa (mismas
+        # proporciones 3:2 que el split): no tapa la tira ni el vehículo.
+        readout_outer = QHBoxLayout(readout_widget)
+        readout_outer.setContentsMargins(8, 8, 0, 8)
+        readout_column = QWidget()
+        readout_layout = QVBoxLayout(readout_column)
+        readout_layout.setContentsMargins(0, 0, 0, 0)
+        readout_layout.setSpacing(4)
+        readout_outer.addWidget(readout_column)
+        readout_outer.addStretch(1)
+        self._readout_column = readout_column
 
         self.status_label = QLabel("Esperando señal GPS...")
         self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -112,7 +129,7 @@ class NavigationScreen(QWidget):
             "border-radius: 6px;"
         )
         font = self.status_label.font()
-        font.setPointSize(16)
+        font.setPointSize(13)
         self.status_label.setFont(font)
 
         self.detail_label = QLabel("")
@@ -125,7 +142,6 @@ class NavigationScreen(QWidget):
         readout_layout.addStretch()
         readout_layout.addWidget(self.status_label)
         readout_layout.addWidget(self.detail_label)
-        readout_layout.addStretch()
 
         # Capa 3 (frente): overlay de imagen de waypoints (Event Engine)
         self.image_label = QLabel()
@@ -158,6 +174,7 @@ class NavigationScreen(QWidget):
         self.roadbook_engine = roadbook_engine
         entries = roadbook_engine.entries if roadbook_engine is not None else []
         self.roadbook_strip.set_entries(entries)
+        self.map_widget.set_route(_route_points(entries))
 
     @pyqtSlot(object)
     def update_position(self, position: GpsPosition) -> None:
@@ -193,11 +210,13 @@ class NavigationScreen(QWidget):
         self.detail_label.setText(
             f"Velocidad: {position.speed:.0f} km/h    Rumbo: {heading_text}"
         )
-        self.map_widget.update_center(position.latitude, position.longitude)
-
         if self.roadbook_engine is not None:
             state = self.roadbook_engine.update_position(position)
             self.roadbook_strip.update_state(state)
+            self.map_widget.set_current_index(state.current_index)
+        self.map_widget.update_vehicle(
+            position.latitude, position.longitude, position.heading
+        )
 
     def show_image(
         self,
@@ -264,6 +283,15 @@ class NavigationScreen(QWidget):
         self.image_label.setPixmap(scaled)
 
     def resizeEvent(self, event) -> None:  # noqa: N802 - override de Qt
-        """Reescala la imagen activa cuando cambia el tamaño de la pantalla."""
+        """Reescala la imagen activa y ajusta la barra de lectura al mapa."""
         super().resizeEvent(event)
         self._apply_scaled_pixmap()
+        self._fit_readout()
+
+    def showEvent(self, event) -> None:  # noqa: N802 - override de Qt
+        super().showEvent(event)
+        self._fit_readout()
+
+    def _fit_readout(self) -> None:
+        # La barra de lectura ocupa exactamente el ancho del mapa.
+        self._readout_column.setFixedWidth(max(self.map_widget.width() - 16, 120))

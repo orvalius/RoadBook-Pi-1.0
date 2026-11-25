@@ -14,12 +14,14 @@ vehículo apenas se movió unos metros.
 from __future__ import annotations
 
 import io
+import math
+from dataclasses import dataclass
 from typing import Protocol
 
 from PIL import Image
 
 from core.lru_cache import LRUCache
-from core.map_manager import deg2num_fractional
+from core.map_manager import deg2num_fractional, num2deg
 from core.navigation_engine import NavigationEngine
 
 PLACEHOLDER_COLOR = (222, 222, 222)
@@ -182,3 +184,87 @@ class CachedTileSource:
     def cache_size(self) -> int:
         """Cantidad de tiles actualmente en cache (para tests/diagnóstico)."""
         return len(self._cache)
+
+
+@dataclass(frozen=True)
+class MapViewport:
+    """Qué parte del mundo muestra una imagen de mapa compuesta.
+
+    Permite ubicar en píxeles cualquier coordenada (la ruta, el
+    vehículo) sobre la imagen ya armada, sin recomponer los tiles.
+
+    Attributes:
+        center_lat: Latitud del centro de la imagen.
+        center_lon: Longitud del centro de la imagen.
+        zoom: Nivel de zoom de los tiles.
+        width: Ancho de la imagen en píxeles.
+        height: Alto de la imagen en píxeles.
+        tile_size: Tamaño de tile en píxeles.
+    """
+
+    center_lat: float
+    center_lon: float
+    zoom: int
+    width: int
+    height: int
+    tile_size: int = 256
+
+    def to_pixel(self, lat: float, lon: float) -> tuple[float, float]:
+        """Coordenada geográfica -> píxel (x, y) sobre la imagen."""
+        cx, cy = deg2num_fractional(self.center_lat, self.center_lon, self.zoom)
+        x, y = deg2num_fractional(lat, lon, self.zoom)
+        return (
+            (x - cx) * self.tile_size + self.width / 2,
+            (y - cy) * self.tile_size + self.height / 2,
+        )
+
+    def to_latlon(self, px: float, py: float) -> tuple[float, float]:
+        """Píxel (x, y) sobre la imagen -> coordenada geográfica."""
+        cx, cy = deg2num_fractional(self.center_lat, self.center_lon, self.zoom)
+        return num2deg(
+            cx + (px - self.width / 2) / self.tile_size,
+            cy + (py - self.height / 2) / self.tile_size,
+            self.zoom,
+        )
+
+    def contains_inner(self, lat: float, lon: float, margin: float = 0.2) -> bool:
+        """True si el punto cae dentro de la zona central (sin el margen)."""
+        x, y = self.to_pixel(lat, lon)
+        mx, my = self.width * margin, self.height * margin
+        return mx <= x <= self.width - mx and my <= y <= self.height - my
+
+
+def look_ahead_center(
+    lat: float,
+    lon: float,
+    heading: float | None,
+    zoom: int,
+    width: int,
+    height: int,
+    fraction: float = 0.22,
+) -> tuple[float, float]:
+    """Centro de mapa adelantado en la dirección de marcha.
+
+    Deja al vehículo detrás del centro para que se vea más camino por
+    delante que por detrás. Sin rumbo conocido, centra en el vehículo.
+
+    Args:
+        lat: Latitud del vehículo.
+        lon: Longitud del vehículo.
+        heading: Rumbo en grados (0 = norte), o None.
+        zoom: Nivel de zoom.
+        width: Ancho del mapa en píxeles.
+        height: Alto del mapa en píxeles.
+        fraction: Cuánto adelantar, como fracción del lado menor.
+
+    Returns:
+        (lat, lon) del centro a usar para componer el mapa.
+    """
+    if heading is None:
+        return lat, lon
+    view = MapViewport(lat, lon, zoom, width, height)
+    shift = fraction * min(width, height)
+    rad = math.radians(heading)
+    return view.to_latlon(
+        width / 2 + shift * math.sin(rad), height / 2 - shift * math.cos(rad)
+    )

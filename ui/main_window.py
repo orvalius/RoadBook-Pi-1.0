@@ -20,12 +20,13 @@ from core.action_dispatcher import ActionType
 from core.audio_manager import AudioManager
 from core.config_manager import ConfigManager
 from core.logger import get_logger
+from core.map_generator import RouteMap
 from core.map_manager import MapManager, MbtilesInfo
 from core.navigation_engine import NavigationEngine
 from core.plugin_manager import PluginManager
 from core.resource_manager import ResourceManager
 from core.roadbook_engine import RoadbookEngine, build_entries
-from core.route import resolve_route_order
+from core.route import resolve_route
 from database.action_repository import ActionRepository
 from database.waypoint_repository import WaypointRepository
 from ui.screens.library import LibraryScreen
@@ -124,6 +125,7 @@ class MainWindow(QMainWindow):
             self.resource_manager,
             on_map_change=self._apply_map,
             on_route_change=self._apply_route,
+            route_provider=self._route_for_map,
         )
         self.stack.addWidget(self.maps_route_screen)
         self.stack.addWidget(SettingsScreen(self.config))
@@ -161,11 +163,11 @@ class MainWindow(QMainWindow):
         )
 
         gpx_path = self.config.get("roadbook.gpx_path", None)
-        ordered = resolve_route_order(
+        ordered, track = resolve_route(
             waypoints,
             self.resource_manager.resolve_relative_path(gpx_path) if gpx_path else None,
         )
-        entries = build_entries(ordered)
+        entries = build_entries(ordered, track)
         self.roadbook_engine = RoadbookEngine(entries)
         self.navigation_screen.set_roadbook_engine(self.roadbook_engine)
         logger.info("RoadbookEngine reconstruido con %d entradas", len(entries))
@@ -206,6 +208,21 @@ class MainWindow(QMainWindow):
         self.config.set("maps.mbtiles_path", path)
         self.config.save()
         logger.info("Mapa offline activo: %s", path or "(ninguno)")
+
+    def _route_for_map(self) -> RouteMap | None:
+        """Ruta activa (track GPX o tramos entre notas) para generar un mapa."""
+        waypoints = self.waypoint_repository.list_all(only_active=True)
+        if not waypoints:
+            return None
+        gpx_path = self.config.get("roadbook.gpx_path", None)
+        ordered, track = resolve_route(
+            waypoints,
+            self.resource_manager.resolve_relative_path(gpx_path) if gpx_path else None,
+        )
+        return RouteMap(
+            line=track or [(wp.latitud, wp.longitud) for wp in ordered],
+            notes=[(wp.latitud, wp.longitud, wp.nombre) for wp in ordered],
+        )
 
     def _apply_route(self, path: str | None) -> None:
         """Activa otro track GPX (o ninguno) y reconstruye la tira del roadbook.

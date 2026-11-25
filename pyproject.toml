@@ -1,6 +1,6 @@
 [project]
 name = "roadbook-pi"
-version = "1.2.0"
+version = "1.3.0"
 description = "Plataforma de navegación basada en eventos geográficos para Raspberry Pi"
 requires-python = ">=3.10"
 license = { text = "MIT" }

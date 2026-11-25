@@ -200,3 +200,47 @@ def test_cancelled_import_worker_leaves_no_file(qtbot, tmp_path: Path) -> None:
 )
 def test_format_size(size: int, text: str) -> None:
     assert format_size(size) == text
+
+
+def test_generate_map_from_route(qtbot, tmp_path: Path) -> None:
+    from core.map_generator import RouteMap
+
+    h = Harness(qtbot, tmp_path)
+    route = RouteMap(
+        line=[(-31.42, -64.18), (-31.43, -64.19)], notes=[(-31.42, -64.18, "Largada")]
+    )
+    screen = MapsRouteScreen(
+        h.config,
+        h.resources,
+        on_map_change=lambda p, info: h.map_changes.append((p, info)),
+        on_route_change=h.route_changes.append,
+        route_provider=lambda: route,
+    )
+    qtbot.addWidget(screen)
+    assert screen.map_generate_button.isVisibleTo(screen)
+
+    screen.map_generate_button.click()
+    qtbot.waitUntil(lambda: bool(h.map_changes), timeout=30000)
+
+    path, info = h.map_changes[-1]
+    assert path == "resources/maps/ruta_generada.mbtiles"
+    assert info.tile_format == "jpg"
+    assert screen.map_combo.currentText() == "ruta_generada.mbtiles"
+
+
+def test_generate_button_hidden_without_provider(h: Harness) -> None:
+    assert not h.build().map_generate_button.isVisibleTo(h.screen)
+
+
+def test_generate_without_waypoints(qtbot, tmp_path: Path) -> None:
+    h = Harness(qtbot, tmp_path)
+    screen = MapsRouteScreen(
+        h.config,
+        h.resources,
+        lambda *a: None,
+        lambda *a: None,
+        route_provider=lambda: None,
+    )
+    qtbot.addWidget(screen)
+    screen.map_generate_button.click()
+    assert "No hay waypoints" in screen.status_label.text()

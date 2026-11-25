@@ -194,6 +194,21 @@ Sirven tanto GPX con track (`trkpt`) como con ruta (`rtept`).
 3. Queda activo apenas termina. Si el zoom configurado no existe en
    ese mapa, se ajusta solo al más cercano disponible.
 
+¿No tenés un mapa de la zona? Con los waypoints cargados (por ejemplo,
+los del Rally de Córdoba del punto 6.1), tocá **Generar desde la
+ruta**: en unos segundos arma un mapa ilustrativo de la zona y lo
+activa. También por consola: `python tools/generar_mapa_ruta.py`.
+
+### 6.5. Ver el vehículo y las curvas
+
+En **Navegación**, con el GPS simulado o real:
+
+- La flecha azul es el vehículo, apuntando hacia donde va; la línea
+  naranja es la ruta y el círculo numerado, la próxima nota.
+- Arriba de la tira, la tarjeta grande muestra la próxima curva: para
+  qué lado dobla, cuántos grados, qué tan cerrada y cuánto falta.
+- Cada fila de la tira tiene su tulipa con la flecha del giro.
+
 ## 7. Probar secuencias de acciones custom
 
 En **Waypoints**, seleccioná el waypoint de prueba y tocá **Secuencia

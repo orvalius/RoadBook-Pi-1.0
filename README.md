@@ -1,6 +1,6 @@
 # RoadBook Pi
 
-**v1.2.0** — Plataforma de navegación basada en eventos geográficos
+**v1.3.0** — Plataforma de navegación basada en eventos geográficos
 para Raspberry Pi.
 
 No es un GPS tradicional: ejecuta acciones automáticamente (mostrar
@@ -19,7 +19,9 @@ Licencia: [MIT](LICENSE).
 Los 12 sprints del roadmap original están completos, más un
 rediseño posterior del Graphic Engine (Sprint 6) como Roadbook
 Rendering Engine y una ronda de pulido (v1.2.0: cierre ordenado bajo
-systemd, pantalla "Mapas y ruta", tests de la capa Qt). Ver `docs/CHANGELOG.md` para el detalle de cada uno.
+systemd, pantalla "Mapas y ruta", tests de la capa Qt) y v1.3.0 (tulipas
+con lado y ángulo de cada giro, vehículo en vivo sobre el mapa,
+generador de mapas offline). Ver `docs/CHANGELOG.md` para el detalle de cada uno.
 
 | Sprint | Descripción         | Estado        |
 |--------|----------------------|----------------|
@@ -43,6 +45,15 @@ systemd, pantalla "Mapas y ruta", tests de la capa Qt). Ver `docs/CHANGELOG.md` 
   ícono, distancia parcial/total, texto de instrucción, con la nota
   actual resaltada y auto-scroll. Independiente del disparo de
   eventos: solo visualiza.
+- **Tulipas de giro**: cada nota de la tira muestra el pictograma de
+  rally con la flecha del giro, el lado y los grados ("Derecha 45° ·
+  media"), y arriba una tarjeta grande con la próxima curva y cuánto
+  falta. Con un track GPX activo, el ángulo es el de la curva real del
+  camino; sin GPX, el cambio de rumbo entre notas.
+- **Mapa en vivo**: la ruta, la próxima nota resaltada y el vehículo
+  (flecha con el rumbo) moviéndose sobre el mapa. El fondo se recompone
+  solo cuando el vehículo se acerca al borde, así el punto se mueve
+  fluido en una Pi 2. Sin mapa offline se ve igual la ruta y la posición.
 - **Waypoints con condiciones**: radio de disparo, velocidad mínima,
   rumbo de aproximación, re-disparo o disparo único por sesión.
 - **Secuencias de acciones configurables** por waypoint: mostrar
@@ -166,8 +177,15 @@ a varios GB). Generá el tuyo con herramientas como
 [MOBAC](https://mobac.sourceforge.io/) o `mb-util` (en formato raster PNG/JPG: los
 tiles vectoriales no se pueden dibujar) e importalo desde **Mapas y
 ruta** → "Importar…": se valida, se copia a `resources/maps/` con
-barra de progreso, y queda activo al instante. Sin mapa, la app
-funciona igual — solo sin mapa visual de fondo.
+barra de progreso, y queda activo al instante.
+
+Si no tenés un mapa de la zona, **Mapas y ruta** → "Generar desde la
+ruta" (o `python tools/generar_mapa_ruta.py`) arma uno a partir de la
+ruta cargada: relieve ilustrativo, cuadrícula de coordenadas, el
+camino y el nombre de cada nota. **No es cartografía real**: el relieve
+es textura generada; solo la ruta, las notas y la cuadrícula tienen
+posición real. Sin ningún mapa, la app muestra la ruta y el vehículo
+sobre un fondo liso.
 
 ## Escribir un plugin propio
 
