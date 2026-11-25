@@ -56,8 +56,9 @@ def main() -> int:
         enabled=config.get("audio.enabled", True),
         volume=config.get("audio.volume", 0.8),
     )
+    mbtiles_path = config.get("maps.mbtiles_path", "resources/maps/default.mbtiles")
     map_manager = MapManager(
-        config.get("maps.mbtiles_path", "resources/maps/default.mbtiles")
+        resource_manager.resolve_relative_path(mbtiles_path) if mbtiles_path else None
     )
 
     plugin_manager = PluginManager()
@@ -79,8 +80,10 @@ def main() -> int:
     # Roadbook Rendering Engine: arma la ruta (GPX si está configurado,
     # si no, conectando los waypoints activos) y el motor que resuelve
     # qué mostrar en la tira ante cada posición GPS.
+    gpx_path = config.get("roadbook.gpx_path", None)
     ordered_waypoints = resolve_route_order(
-        active_waypoints, config.get("roadbook.gpx_path", None)
+        active_waypoints,
+        resource_manager.resolve_relative_path(gpx_path) if gpx_path else None,
     )
     roadbook_engine = RoadbookEngine(build_entries(ordered_waypoints))
 

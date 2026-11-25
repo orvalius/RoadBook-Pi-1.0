@@ -23,6 +23,7 @@ waypoints ya cargados).
 from __future__ import annotations
 
 import xml.etree.ElementTree as ET
+from dataclasses import dataclass
 from pathlib import Path
 
 from core.logger import get_logger
@@ -33,17 +34,20 @@ logger = get_logger(__name__)
 
 
 def parse_gpx(path: str | Path) -> list[tuple[float, float]]:
-    """Parsea los puntos de track de un archivo GPX (elementos ``trkpt``).
+    """Parsea los puntos de un archivo GPX.
 
-    Ignora el namespace del GPX (busca por nombre de tag local), así
-    que funciona con archivos GPX 1.0 y 1.1 sin configuración extra.
+    Usa los puntos de track (``trkpt``). Si el archivo no tiene track
+    pero sí una ruta (``rtept`` — formato habitual de los GPX que
+    exportan los organizadores de rally y muchas apps de planificación),
+    usa la ruta. Ignora el namespace del GPX (busca por nombre de tag
+    local), así que funciona con GPX 1.0 y 1.1 sin configuración extra.
 
     Args:
         path: Ruta al archivo .gpx.
 
     Returns:
-        Lista de (latitud, longitud) en el orden del track. Vacía si
-        el archivo no existe, no es XML válido, o no tiene track points.
+        Lista de (latitud, longitud) en orden. Vacía si el archivo no
+        existe, no es XML válido, o no tiene puntos de track ni de ruta.
     """
     path = Path(path)
     if not path.exists():
@@ -56,21 +60,67 @@ def parse_gpx(path: str | Path) -> list[tuple[float, float]]:
         logger.error("Route: error parseando GPX %s: %s", path, exc)
         return []
 
-    points: list[tuple[float, float]] = []
+    by_tag: dict[str, list[tuple[float, float]]] = {"trkpt": [], "rtept": []}
     for elem in tree.getroot().iter():
         local_tag = elem.tag.rsplit("}", 1)[-1]
-        if local_tag != "trkpt":
+        if local_tag not in by_tag:
             continue
         lat_raw, lon_raw = elem.get("lat"), elem.get("lon")
         if lat_raw is None or lon_raw is None:
             continue
         try:
-            points.append((float(lat_raw), float(lon_raw)))
+            by_tag[local_tag].append((float(lat_raw), float(lon_raw)))
         except ValueError:
             continue
 
-    logger.info("Route: %d puntos de track leídos desde %s", len(points), path)
+    points = by_tag["trkpt"] or by_tag["rtept"]
+    kind = "track" if by_tag["trkpt"] else "ruta"
+    logger.info("Route: %d puntos de %s leídos desde %s", len(points), kind, path)
     return points
+
+
+class InvalidGpxError(ValueError):
+    """El archivo no existe, no es GPX válido, o no tiene puntos."""
+
+
+@dataclass(frozen=True)
+class GpxInfo:
+    """Resumen de un archivo GPX, para mostrar antes de usarlo.
+
+    Attributes:
+        path: Ruta del archivo inspeccionado.
+        point_count: Cantidad de puntos de track (o de ruta).
+        length_m: Largo del recorrido en metros (suma haversine).
+    """
+
+    path: Path
+    point_count: int
+    length_m: float
+
+
+def track_length_m(track: list[tuple[float, float]]) -> float:
+    """Largo de un track en metros (suma de tramos en línea recta)."""
+    return sum(
+        NavigationEngine.haversine_distance(a[0], a[1], b[0], b[1])
+        for a, b in zip(track, track[1:], strict=False)
+    )
+
+
+def inspect_gpx(path: str | Path) -> GpxInfo:
+    """Valida un GPX y devuelve su resumen.
+
+    Raises:
+        InvalidGpxError: Si no hay puntos utilizables.
+    """
+    path = Path(path)
+    if not path.is_file():
+        raise InvalidGpxError(f"No existe el archivo: {path}")
+    track = parse_gpx(path)
+    if not track:
+        raise InvalidGpxError(
+            f"{path.name} no tiene puntos de track ni de ruta (¿es un GPX válido?)"
+        )
+    return GpxInfo(path=path, point_count=len(track), length_m=track_length_m(track))
 
 
 def _nearest_track_index(

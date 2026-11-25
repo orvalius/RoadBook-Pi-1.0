@@ -20,7 +20,7 @@ from core.action_dispatcher import ActionType
 from core.audio_manager import AudioManager
 from core.config_manager import ConfigManager
 from core.logger import get_logger
-from core.map_manager import MapManager
+from core.map_manager import MapManager, MbtilesInfo
 from core.navigation_engine import NavigationEngine
 from core.plugin_manager import PluginManager
 from core.resource_manager import ResourceManager
@@ -30,13 +30,21 @@ from database.action_repository import ActionRepository
 from database.waypoint_repository import WaypointRepository
 from ui.screens.library import LibraryScreen
 from ui.screens.logs import LogsScreen
+from ui.screens.maps_route import MapsRouteScreen
 from ui.screens.navigation import NavigationScreen
 from ui.screens.settings import SettingsScreen
 from ui.screens.waypoints import WaypointsScreen
 
 logger = get_logger(__name__)
 
-SCREEN_NAMES = ["Navegación", "Waypoints", "Biblioteca", "Configuración", "Logs"]
+SCREEN_NAMES = [
+    "Navegación",
+    "Waypoints",
+    "Biblioteca",
+    "Mapas y ruta",
+    "Configuración",
+    "Logs",
+]
 
 
 class MainWindow(QMainWindow):
@@ -111,6 +119,13 @@ class MainWindow(QMainWindow):
             )
         )
         self.stack.addWidget(LibraryScreen(self.resource_manager, self.audio_manager))
+        self.maps_route_screen = MapsRouteScreen(
+            self.config,
+            self.resource_manager,
+            on_map_change=self._apply_map,
+            on_route_change=self._apply_route,
+        )
+        self.stack.addWidget(self.maps_route_screen)
         self.stack.addWidget(SettingsScreen(self.config))
         self.stack.addWidget(LogsScreen())
 
@@ -146,11 +161,63 @@ class MainWindow(QMainWindow):
         )
 
         gpx_path = self.config.get("roadbook.gpx_path", None)
-        ordered = resolve_route_order(waypoints, gpx_path)
+        ordered = resolve_route_order(
+            waypoints,
+            self.resource_manager.resolve_relative_path(gpx_path) if gpx_path else None,
+        )
         entries = build_entries(ordered)
         self.roadbook_engine = RoadbookEngine(entries)
         self.navigation_screen.set_roadbook_engine(self.roadbook_engine)
         logger.info("RoadbookEngine reconstruido con %d entradas", len(entries))
+
+    def _apply_map(self, path: str | None, info: MbtilesInfo | None) -> None:
+        """Activa otro mapa offline (o ninguno) sin reiniciar la app.
+
+        Invocado por la pantalla "Mapas y ruta" con un archivo ya
+        validado. Si el zoom configurado queda fuera del rango del
+        mapa nuevo, se ajusta: si no, el mapa se vería vacío.
+
+        Args:
+            path: Ruta relativa del .mbtiles en la biblioteca, o None.
+            info: Resumen del archivo (rango de zoom), o None.
+        """
+        if self.map_manager is None:
+            logger.warning("Cambio de mapa ignorado: no hay MapManager")
+            return
+
+        self.map_manager.open(
+            self.resource_manager.resolve_relative_path(path) if path else None
+        )
+        map_widget = self.navigation_screen.map_widget
+        if info is not None:
+            zoom = info.clamp_zoom(map_widget.zoom)
+            if zoom != map_widget.zoom:
+                logger.info(
+                    "Zoom %s fuera del rango del mapa (%s-%s): se usa %s",
+                    map_widget.zoom,
+                    info.min_zoom,
+                    info.max_zoom,
+                    zoom,
+                )
+                map_widget.zoom = zoom
+                self.config.set("maps.default_zoom", zoom)
+        map_widget.reload_source()
+
+        self.config.set("maps.mbtiles_path", path)
+        self.config.save()
+        logger.info("Mapa offline activo: %s", path or "(ninguno)")
+
+    def _apply_route(self, path: str | None) -> None:
+        """Activa otro track GPX (o ninguno) y reconstruye la tira del roadbook.
+
+        Args:
+            path: Ruta relativa del .gpx en la biblioteca, o None para
+                ordenar la tira por los waypoints.
+        """
+        self.config.set("roadbook.gpx_path", path)
+        self.config.save()
+        logger.info("Ruta GPX activa: %s", path or "(ninguna)")
+        self._reload_navigation_waypoints()
 
     def handle_action(self, action_type: ActionType, payload: dict) -> None:
         """Ejecuta la reacción de UI/Audio para una acción despachada.
