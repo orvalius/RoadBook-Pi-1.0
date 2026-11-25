@@ -30,6 +30,7 @@ from database.waypoint_repository import WaypointRepository
 from ui.action_event_adapter import QtActionAdapter
 from ui.gps_adapter import QtGpsAdapter
 from ui.main_window import MainWindow
+from ui.signal_handler import GracefulShutdown
 from ui.waypoint_event_adapter import WaypointEventAdapter
 
 logger = get_logger(__name__)
@@ -116,15 +117,46 @@ def main() -> int:
     gps_adapter.position_received.connect(window.navigation_screen.update_position)
     action_adapter.action_triggered.connect(window.handle_action)
 
+    # Debe instalarse después de AudioManager: pygame/SDL pisa los
+    # handlers de SIGTERM/SIGINT al inicializarse (ver ui/signal_handler.py).
+    shutdown = GracefulShutdown(on_shutdown=app.quit)
+    shutdown.install()
+
     gps_adapter.start()
 
-    exit_code = app.exec()
-
-    gps_adapter.stop()
-    map_manager.close()
-    db.close()
+    exit_code = 1
+    try:
+        exit_code = app.exec()
+    finally:
+        _shutdown_services(gps_adapter, audio_manager, map_manager, db)
+        shutdown.uninstall()
     logger.info("=== RoadBook Pi finalizado (código %s) ===", exit_code)
     return exit_code
+
+
+def _shutdown_services(
+    gps_adapter: QtGpsAdapter,
+    audio_manager: AudioManager,
+    map_manager: MapManager,
+    db: DatabaseManager,
+) -> None:
+    """Libera recursos en orden inverso al arranque.
+
+    Cada paso es independiente: si uno falla, se loguea y se sigue con
+    el resto, para no dejar la base de datos abierta por un error en el
+    GPS (relevante si el cierre viene de un apagado de la Raspberry Pi).
+    """
+    steps = (
+        ("GPS", gps_adapter.stop),
+        ("audio", audio_manager.stop_all),
+        ("mapas", map_manager.close),
+        ("base de datos", db.close),
+    )
+    for name, step in steps:
+        try:
+            step()
+        except Exception:  # noqa: BLE001 - el cierre debe completarse igual
+            logger.exception("Error cerrando %s", name)
 
 
 if __name__ == "__main__":

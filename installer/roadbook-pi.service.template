@@ -10,6 +10,10 @@ WorkingDirectory=__INSTALL_DIR__
 ExecStart=__INSTALL_DIR__/.venv/bin/python __INSTALL_DIR__/main.py
 Restart=on-failure
 RestartSec=5
+# La app cierra ordenadamente ante SIGTERM (GPS, audio, mapas, DB).
+# Si en 15 s no terminó, systemd la mata con SIGKILL.
+KillSignal=SIGTERM
+TimeoutStopSec=15
 
 [Install]
 WantedBy=graphical.target

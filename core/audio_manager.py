@@ -12,6 +12,7 @@ sesión (ej: un mismo aviso de "curva peligrosa" en varios puntos).
 
 from __future__ import annotations
 
+import os
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -53,6 +54,10 @@ class AudioManager:
 
         if self.enabled and self._sound_factory is None:
             try:
+                # Sin esto, SDL instala handlers propios de SIGINT/SIGTERM
+                # que se tragan la señal y la app no cierra bajo systemd.
+                # El cierre ordenado lo maneja ui/signal_handler.py.
+                os.environ.setdefault("SDL_NO_SIGNAL_HANDLERS", "1")
                 import pygame
 
                 pygame.mixer.init()
