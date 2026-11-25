@@ -20,7 +20,9 @@ def test_gpsd_connection_failure_does_not_kill_thread() -> None:
     no morir silenciosamente tras el primer fallo."""
     port = _unused_port()
     manager = GpsManager(
-        backend="gpsd", gpsd_host="127.0.0.1", gpsd_port=port,
+        backend="gpsd",
+        gpsd_host="127.0.0.1",
+        gpsd_port=port,
         reconnect_interval_seconds=0.05,
     )
 
@@ -38,7 +40,9 @@ def test_gpsd_stop_during_backoff_wait_is_responsive() -> None:
     intervalo de reintento, no esperar el backoff completo."""
     port = _unused_port()
     manager = GpsManager(
-        backend="gpsd", gpsd_host="127.0.0.1", gpsd_port=port,
+        backend="gpsd",
+        gpsd_host="127.0.0.1",
+        gpsd_port=port,
         reconnect_interval_seconds=10.0,  # backoff largo a propósito
     )
 

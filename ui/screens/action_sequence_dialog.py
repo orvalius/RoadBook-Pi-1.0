@@ -31,9 +31,9 @@ from PyQt6.QtWidgets import (
 from core.action_descriptions import ACTION_TYPE_LABELS, describe_action
 from core.action_dispatcher import ActionType
 from core.logger import get_logger
+from core.resource_manager import ResourceManager
 from database.action_repository import ActionRepository
 from database.models import Action, Waypoint
-from core.resource_manager import ResourceManager
 
 logger = get_logger(__name__)
 
@@ -103,7 +103,9 @@ class ActionStepDialog(QDialog):
         self.pages.addWidget(self._wrap("Mensaje:", self.log_message))
 
         self.plugin_name = QLineEdit()
-        self.plugin_name.setPlaceholderText("Nombre del plugin (ver plugins.enabled en config.json)")
+        self.plugin_name.setPlaceholderText(
+            "Nombre del plugin (ver plugins.enabled en config.json)"
+        )
         self.pages.addWidget(self._wrap("Nombre del plugin:", self.plugin_name))
 
         form.addRow(self.pages)
@@ -157,21 +159,27 @@ class ActionStepDialog(QDialog):
 
         if tipo == ActionType.SHOW_IMAGE.value and self.image_selector.count() == 0:
             QMessageBox.warning(
-                self, "Sin imágenes",
+                self,
+                "Sin imágenes",
                 "No hay imágenes en la Biblioteca. Importá alguna primero.",
             )
             return
         if tipo == ActionType.PLAY_AUDIO.value and self.audio_selector.count() == 0:
             QMessageBox.warning(
-                self, "Sin audios",
+                self,
+                "Sin audios",
                 "No hay audios en la Biblioteca. Importá alguno primero.",
             )
             return
         if tipo == ActionType.LOG_EVENT.value and not self.log_message.text().strip():
-            QMessageBox.warning(self, "Falta el mensaje", "Escribí un mensaje para el log.")
+            QMessageBox.warning(
+                self, "Falta el mensaje", "Escribí un mensaje para el log."
+            )
             return
         if tipo == ActionType.RUN_PLUGIN.value and not self.plugin_name.text().strip():
-            QMessageBox.warning(self, "Falta el nombre", "Escribí el nombre del plugin.")
+            QMessageBox.warning(
+                self, "Falta el nombre", "Escribí el nombre del plugin."
+            )
             return
 
         self.accept()
@@ -227,10 +235,17 @@ class ActionSequenceDialog(QDialog):
         self.action_repository = action_repository
         self.resource_manager = resource_manager
 
-        existing = action_repository.list_for_waypoint(waypoint.id) if waypoint.id else []
+        existing = (
+            action_repository.list_for_waypoint(waypoint.id) if waypoint.id else []
+        )
         # Copia de trabajo en memoria: no se toca la base hasta "Guardar"
         self._steps: list[Action] = [
-            Action(waypoint_id=waypoint.id, orden=a.orden, tipo=a.tipo, payload=dict(a.payload))
+            Action(
+                waypoint_id=waypoint.id,
+                orden=a.orden,
+                tipo=a.tipo,
+                payload=dict(a.payload),
+            )
             for a in existing
         ]
         self._is_custom = len(existing) > 0
@@ -270,7 +285,8 @@ class ActionSequenceDialog(QDialog):
         layout.addWidget(reset_button)
 
         dialog_buttons = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel
+            QDialogButtonBox.StandardButton.Save
+            | QDialogButtonBox.StandardButton.Cancel
         )
         dialog_buttons.accepted.connect(self._on_save)
         dialog_buttons.rejected.connect(self.reject)
@@ -279,11 +295,14 @@ class ActionSequenceDialog(QDialog):
     def _refresh_list(self) -> None:
         self.step_list.clear()
         for i, action in enumerate(self._steps, start=1):
-            self.step_list.addItem(f"{i}. {describe_action(action.tipo, action.payload)}")
+            self.step_list.addItem(
+                f"{i}. {describe_action(action.tipo, action.payload)}"
+            )
 
         if self._steps:
             self.status_label.setText(
-                "Secuencia custom: se ejecuta esta lista en vez del comportamiento por defecto."
+                "Secuencia custom: se ejecuta esta lista en vez del comportamiento "
+                "por defecto."
             )
         else:
             self.status_label.setText(
@@ -296,14 +315,21 @@ class ActionSequenceDialog(QDialog):
         if dialog.exec() == QDialog.DialogCode.Accepted:
             tipo, payload = dialog.get_payload()
             self._steps.append(
-                Action(waypoint_id=self.waypoint.id, orden=len(self._steps), tipo=tipo, payload=payload)
+                Action(
+                    waypoint_id=self.waypoint.id,
+                    orden=len(self._steps),
+                    tipo=tipo,
+                    payload=payload,
+                )
             )
             self._refresh_list()
 
     def _on_edit_step(self) -> None:
         index = self.step_list.currentRow()
         if index < 0:
-            QMessageBox.information(self, "Sin selección", "Seleccioná un paso primero.")
+            QMessageBox.information(
+                self, "Sin selección", "Seleccioná un paso primero."
+            )
             return
 
         current = self._steps[index]
@@ -318,7 +344,9 @@ class ActionSequenceDialog(QDialog):
     def _on_delete_step(self) -> None:
         index = self.step_list.currentRow()
         if index < 0:
-            QMessageBox.information(self, "Sin selección", "Seleccioná un paso primero.")
+            QMessageBox.information(
+                self, "Sin selección", "Seleccioná un paso primero."
+            )
             return
         del self._steps[index]
         self._refresh_list()
@@ -328,13 +356,17 @@ class ActionSequenceDialog(QDialog):
         new_index = index + delta
         if index < 0 or not (0 <= new_index < len(self._steps)):
             return
-        self._steps[index], self._steps[new_index] = self._steps[new_index], self._steps[index]
+        self._steps[index], self._steps[new_index] = (
+            self._steps[new_index],
+            self._steps[index],
+        )
         self._refresh_list()
         self.step_list.setCurrentRow(new_index)
 
     def _on_reset_to_default(self) -> None:
         confirm = QMessageBox.question(
-            self, "Restablecer",
+            self,
+            "Restablecer",
             "¿Borrar la secuencia custom y volver al comportamiento por defecto "
             "(imagen/audio legacy)? Esto se aplica al guardar.",
         )

@@ -3,7 +3,8 @@
 Administra la biblioteca de recursos (imágenes, audio, iconos,
 plantillas). Regla clave de la especificación: nunca guardar rutas
 absolutas; los recursos se copian dentro del proyecto
-(resources/images, resources/audio, resources/icons, resources/maps).
+(resources/images, resources/audio, resources/icons, resources/maps,
+resources/routes).
 
 Ningún otro módulo debe copiar/borrar archivos de ``resources/``
 directamente; siempre pasa por acá.
@@ -12,14 +13,19 @@ directamente; siempre pasa por acá.
 from __future__ import annotations
 
 import shutil
+from collections.abc import Callable
 from pathlib import Path
 
 from core.logger import get_logger
 
 logger = get_logger(__name__)
 
+# (bytes copiados, bytes totales). Ver import_resource.
+ProgressCallback = Callable[[int, int], None]
+COPY_CHUNK_BYTES = 4 * 1024 * 1024
+
 RESOURCES_ROOT = Path(__file__).resolve().parent.parent / "resources"
-VALID_CATEGORIES = ("images", "audio", "icons", "maps")
+VALID_CATEGORIES = ("images", "audio", "icons", "maps", "routes")
 
 
 class ResourceManager:
@@ -43,7 +49,12 @@ class ResourceManager:
                 f"Válidas: {VALID_CATEGORIES}"
             )
 
-    def import_resource(self, source_path: str | Path, category: str) -> str:
+    def import_resource(
+        self,
+        source_path: str | Path,
+        category: str,
+        progress: ProgressCallback | None = None,
+    ) -> str:
         """Copia un recurso externo dentro del proyecto.
 
         Si ya existe un archivo con el mismo nombre en esa categoría,
@@ -53,7 +64,10 @@ class ResourceManager:
         Args:
             source_path: Ruta absoluta del archivo original.
             category: Subcarpeta destino ("images", "audio", "icons",
-                "maps").
+                "maps", "routes").
+            progress: Opcional. Se llama durante la copia con (bytes
+                copiados, total). Útil para mbtiles de varios GB, que
+                en la SD de una Pi tardan minutos en copiarse.
 
         Returns:
             Ruta relativa (desde la raíz del proyecto) del recurso ya
@@ -80,7 +94,15 @@ class ResourceManager:
                 destination = target_dir / f"{stem}_{counter}{suffix}"
                 counter += 1
 
-        shutil.copy2(source, destination)
+        try:
+            if progress is None:
+                shutil.copy2(source, destination)
+            else:
+                _copy_with_progress(source, destination, progress)
+        except BaseException:
+            # No dejar un archivo a medio copiar en la biblioteca.
+            destination.unlink(missing_ok=True)
+            raise
         relative_path = str(destination.relative_to(self.resources_root.parent))
         logger.info("Recurso importado: %s -> %s", source, relative_path)
         return relative_path
@@ -154,3 +176,17 @@ class ResourceManager:
             raise FileNotFoundError(f"Recurso no encontrado: {path}")
         path.unlink()
         logger.info("Recurso eliminado: %s/%s", category, filename)
+
+
+def _copy_with_progress(
+    source: Path, destination: Path, progress: ProgressCallback
+) -> None:
+    total = source.stat().st_size
+    copied = 0
+    progress(0, total)
+    with source.open("rb") as src, destination.open("wb") as dst:
+        while chunk := src.read(COPY_CHUNK_BYTES):
+            dst.write(chunk)
+            copied += len(chunk)
+            progress(copied, total)
+    shutil.copystat(source, destination)

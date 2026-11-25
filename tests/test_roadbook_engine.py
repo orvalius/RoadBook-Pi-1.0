@@ -27,29 +27,43 @@ def test_build_entries_empty_list() -> None:
 
 def test_stays_on_first_entry_when_far_from_everything() -> None:
     engine = RoadbookEngine(_sample_entries())
-    state = engine.update_position(GpsPosition(latitude=-1.0, longitude=-1.0, has_fix=True))
+    state = engine.update_position(
+        GpsPosition(latitude=-1.0, longitude=-1.0, has_fix=True)
+    )
     assert state.current_index == 0
 
 
 def test_advances_when_entering_current_entry_radius() -> None:
     engine = RoadbookEngine(_sample_entries())
     engine.update_position(GpsPosition(latitude=-1.0, longitude=-1.0, has_fix=True))
-    state = engine.update_position(GpsPosition(latitude=0.00, longitude=0.00, has_fix=True))
+    state = engine.update_position(
+        GpsPosition(latitude=0.00, longitude=0.00, has_fix=True)
+    )
     assert state.current_index == 1
 
 
 def test_progress_fraction_mid_segment() -> None:
     engine = RoadbookEngine(_sample_entries())
-    engine.update_position(GpsPosition(latitude=0.00, longitude=0.00, has_fix=True))  # -> idx 1
-    state = engine.update_position(GpsPosition(latitude=0.005, longitude=0.00, has_fix=True))
+    engine.update_position(
+        GpsPosition(latitude=0.00, longitude=0.00, has_fix=True)
+    )  # -> idx 1
+    state = engine.update_position(
+        GpsPosition(latitude=0.005, longitude=0.00, has_fix=True)
+    )
     assert 0.3 < state.progress_fraction < 0.7
 
 
 def test_no_fix_does_not_advance_or_crash() -> None:
     engine = RoadbookEngine(_sample_entries())
-    engine.update_position(GpsPosition(latitude=0.00, longitude=0.00, has_fix=True))  # -> idx 1
-    before = engine.update_position(GpsPosition(latitude=0.005, longitude=0.00, has_fix=True))
-    after = engine.update_position(GpsPosition(latitude=0.01, longitude=0.00, has_fix=False))
+    engine.update_position(
+        GpsPosition(latitude=0.00, longitude=0.00, has_fix=True)
+    )  # -> idx 1
+    before = engine.update_position(
+        GpsPosition(latitude=0.005, longitude=0.00, has_fix=True)
+    )
+    after = engine.update_position(
+        GpsPosition(latitude=0.01, longitude=0.00, has_fix=False)
+    )
     assert after.current_index == before.current_index
     assert after.distance_to_next_m is None
 
@@ -58,22 +72,31 @@ def test_does_not_advance_past_last_entry() -> None:
     engine = RoadbookEngine(_sample_entries())
     engine.update_position(GpsPosition(latitude=0.00, longitude=0.00, has_fix=True))
     engine.update_position(GpsPosition(latitude=0.01, longitude=0.00, has_fix=True))
-    state = engine.update_position(GpsPosition(latitude=0.02, longitude=0.00, has_fix=True))
+    state = engine.update_position(
+        GpsPosition(latitude=0.02, longitude=0.00, has_fix=True)
+    )
     assert state.current_index == 2
 
-    state2 = engine.update_position(GpsPosition(latitude=0.02, longitude=0.00, has_fix=True))
+    state2 = engine.update_position(
+        GpsPosition(latitude=0.02, longitude=0.00, has_fix=True)
+    )
     assert state2.current_index == 2
 
 
 def test_reset_returns_to_first_entry() -> None:
     engine = RoadbookEngine(_sample_entries())
     engine.update_position(GpsPosition(latitude=0.00, longitude=0.00, has_fix=True))
-    assert engine.update_position(
-        GpsPosition(latitude=-1.0, longitude=-1.0, has_fix=True)
-    ).current_index == 1
+    assert (
+        engine.update_position(
+            GpsPosition(latitude=-1.0, longitude=-1.0, has_fix=True)
+        ).current_index
+        == 1
+    )
 
     engine.reset()
-    state = engine.update_position(GpsPosition(latitude=-1.0, longitude=-1.0, has_fix=True))
+    state = engine.update_position(
+        GpsPosition(latitude=-1.0, longitude=-1.0, has_fix=True)
+    )
     assert state.current_index == 0
 
 

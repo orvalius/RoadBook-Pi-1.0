@@ -58,7 +58,7 @@ class Waypoint:
     id: int | None = None
 
     @classmethod
-    def from_row(cls, row) -> "Waypoint":
+    def from_row(cls, row) -> Waypoint:
         """Construye un Waypoint a partir de una fila sqlite3.Row.
 
         Args:
@@ -110,7 +110,7 @@ class Action:
     id: int | None = None
 
     @classmethod
-    def from_row(cls, row) -> "Action":
+    def from_row(cls, row) -> Action:
         """Construye una Action a partir de una fila sqlite3.Row.
 
         Args:

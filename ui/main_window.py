@@ -20,23 +20,32 @@ from core.action_dispatcher import ActionType
 from core.audio_manager import AudioManager
 from core.config_manager import ConfigManager
 from core.logger import get_logger
-from core.map_manager import MapManager
+from core.map_generator import RouteMap
+from core.map_manager import MapManager, MbtilesInfo
 from core.navigation_engine import NavigationEngine
 from core.plugin_manager import PluginManager
 from core.resource_manager import ResourceManager
 from core.roadbook_engine import RoadbookEngine, build_entries
-from core.route import resolve_route_order
+from core.route import resolve_route
 from database.action_repository import ActionRepository
 from database.waypoint_repository import WaypointRepository
 from ui.screens.library import LibraryScreen
 from ui.screens.logs import LogsScreen
+from ui.screens.maps_route import MapsRouteScreen
 from ui.screens.navigation import NavigationScreen
 from ui.screens.settings import SettingsScreen
 from ui.screens.waypoints import WaypointsScreen
 
 logger = get_logger(__name__)
 
-SCREEN_NAMES = ["Navegación", "Waypoints", "Biblioteca", "Configuración", "Logs"]
+SCREEN_NAMES = [
+    "Navegación",
+    "Waypoints",
+    "Biblioteca",
+    "Mapas y ruta",
+    "Configuración",
+    "Logs",
+]
 
 
 class MainWindow(QMainWindow):
@@ -93,8 +102,12 @@ class MainWindow(QMainWindow):
         self.navigation_screen = NavigationScreen(
             map_manager=self.map_manager,
             map_zoom=self.config.get("maps.default_zoom", 15),
-            map_redraw_threshold_meters=self.config.get("maps.redraw_threshold_meters", 20.0),
-            image_display_seconds=self.config.get("graphics.image_display_seconds", 5.0),
+            map_redraw_threshold_meters=self.config.get(
+                "maps.redraw_threshold_meters", 20.0
+            ),
+            image_display_seconds=self.config.get(
+                "graphics.image_display_seconds", 5.0
+            ),
             roadbook_engine=self.roadbook_engine,
         )
         self.stack.addWidget(self.navigation_screen)
@@ -107,6 +120,14 @@ class MainWindow(QMainWindow):
             )
         )
         self.stack.addWidget(LibraryScreen(self.resource_manager, self.audio_manager))
+        self.maps_route_screen = MapsRouteScreen(
+            self.config,
+            self.resource_manager,
+            on_map_change=self._apply_map,
+            on_route_change=self._apply_route,
+            route_provider=self._route_for_map,
+        )
+        self.stack.addWidget(self.maps_route_screen)
         self.stack.addWidget(SettingsScreen(self.config))
         self.stack.addWidget(LogsScreen())
 
@@ -137,14 +158,83 @@ class MainWindow(QMainWindow):
         """
         waypoints = self.waypoint_repository.list_all(only_active=True)
         self.navigation_engine.load_waypoints(waypoints)
-        logger.info("NavigationEngine recargado con %d waypoints activos", len(waypoints))
+        logger.info(
+            "NavigationEngine recargado con %d waypoints activos", len(waypoints)
+        )
 
         gpx_path = self.config.get("roadbook.gpx_path", None)
-        ordered = resolve_route_order(waypoints, gpx_path)
-        entries = build_entries(ordered)
+        ordered, track = resolve_route(
+            waypoints,
+            self.resource_manager.resolve_relative_path(gpx_path) if gpx_path else None,
+        )
+        entries = build_entries(ordered, track)
         self.roadbook_engine = RoadbookEngine(entries)
         self.navigation_screen.set_roadbook_engine(self.roadbook_engine)
         logger.info("RoadbookEngine reconstruido con %d entradas", len(entries))
+
+    def _apply_map(self, path: str | None, info: MbtilesInfo | None) -> None:
+        """Activa otro mapa offline (o ninguno) sin reiniciar la app.
+
+        Invocado por la pantalla "Mapas y ruta" con un archivo ya
+        validado. Si el zoom configurado queda fuera del rango del
+        mapa nuevo, se ajusta: si no, el mapa se vería vacío.
+
+        Args:
+            path: Ruta relativa del .mbtiles en la biblioteca, o None.
+            info: Resumen del archivo (rango de zoom), o None.
+        """
+        if self.map_manager is None:
+            logger.warning("Cambio de mapa ignorado: no hay MapManager")
+            return
+
+        self.map_manager.open(
+            self.resource_manager.resolve_relative_path(path) if path else None
+        )
+        map_widget = self.navigation_screen.map_widget
+        if info is not None:
+            zoom = info.clamp_zoom(map_widget.zoom)
+            if zoom != map_widget.zoom:
+                logger.info(
+                    "Zoom %s fuera del rango del mapa (%s-%s): se usa %s",
+                    map_widget.zoom,
+                    info.min_zoom,
+                    info.max_zoom,
+                    zoom,
+                )
+                map_widget.zoom = zoom
+                self.config.set("maps.default_zoom", zoom)
+        map_widget.reload_source()
+
+        self.config.set("maps.mbtiles_path", path)
+        self.config.save()
+        logger.info("Mapa offline activo: %s", path or "(ninguno)")
+
+    def _route_for_map(self) -> RouteMap | None:
+        """Ruta activa (track GPX o tramos entre notas) para generar un mapa."""
+        waypoints = self.waypoint_repository.list_all(only_active=True)
+        if not waypoints:
+            return None
+        gpx_path = self.config.get("roadbook.gpx_path", None)
+        ordered, track = resolve_route(
+            waypoints,
+            self.resource_manager.resolve_relative_path(gpx_path) if gpx_path else None,
+        )
+        return RouteMap(
+            line=track or [(wp.latitud, wp.longitud) for wp in ordered],
+            notes=[(wp.latitud, wp.longitud, wp.nombre) for wp in ordered],
+        )
+
+    def _apply_route(self, path: str | None) -> None:
+        """Activa otro track GPX (o ninguno) y reconstruye la tira del roadbook.
+
+        Args:
+            path: Ruta relativa del .gpx en la biblioteca, o None para
+                ordenar la tira por los waypoints.
+        """
+        self.config.set("roadbook.gpx_path", path)
+        self.config.save()
+        logger.info("Ruta GPX activa: %s", path or "(ninguna)")
+        self._reload_navigation_waypoints()
 
     def handle_action(self, action_type: ActionType, payload: dict) -> None:
         """Ejecuta la reacción de UI/Audio para una acción despachada.
@@ -169,7 +259,9 @@ class MainWindow(QMainWindow):
         elif action_type is ActionType.RUN_PLUGIN:
             self._handle_run_plugin(payload)
         else:
-            logger.warning("handle_action: tipo de acción no reconocido: %s", action_type)
+            logger.warning(
+                "handle_action: tipo de acción no reconocido: %s", action_type
+            )
 
     def _handle_show_image(self, payload: dict) -> None:
         relative_path = payload.get("path")
@@ -211,7 +303,8 @@ class MainWindow(QMainWindow):
         if plugin is None:
             logger.warning(
                 "Plugin '%s' no está cargado (¿falta en plugins.enabled de "
-                "la config, o el archivo no existe en plugins/?)", plugin_name,
+                "la config, o el archivo no existe en plugins/?)",
+                plugin_name,
             )
             return
 

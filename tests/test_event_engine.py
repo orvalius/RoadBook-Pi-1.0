@@ -42,23 +42,33 @@ def _wait_until(condition, timeout: float = 2.0, interval: float = 0.02) -> bool
 def test_default_sequence_with_image_and_audio() -> None:
     dispatcher = RecordingDispatcher()
     engine = EventEngine(dispatcher, default_image_display_seconds=0.05)
-    wp = Waypoint(id=1, nombre="Curva", latitud=0, longitud=0, imagen="resources/images/x.jpg",
-                  audio="resources/audio/x.wav")
+    wp = Waypoint(
+        id=1,
+        nombre="Curva",
+        latitud=0,
+        longitud=0,
+        imagen="resources/images/x.jpg",
+        audio="resources/audio/x.wav",
+    )
 
     engine.handle_waypoint(wp)
 
     assert _wait_until(lambda: len(dispatcher.calls) >= 4)
     types = [call[1] for call in dispatcher.calls]
     assert types == [
-        ActionType.SHOW_IMAGE, ActionType.PLAY_AUDIO,
-        ActionType.HIDE_IMAGE, ActionType.LOG_EVENT,
+        ActionType.SHOW_IMAGE,
+        ActionType.PLAY_AUDIO,
+        ActionType.HIDE_IMAGE,
+        ActionType.LOG_EVENT,
     ]
 
 
 def test_default_sequence_without_image_has_no_wait_or_hide() -> None:
     dispatcher = RecordingDispatcher()
     engine = EventEngine(dispatcher)
-    wp = Waypoint(id=2, nombre="Solo audio", latitud=0, longitud=0, audio="resources/audio/x.wav")
+    wp = Waypoint(
+        id=2, nombre="Solo audio", latitud=0, longitud=0, audio="resources/audio/x.wav"
+    )
 
     engine.handle_waypoint(wp)
 
@@ -101,7 +111,9 @@ def test_custom_sequence_overrides_default() -> None:
     ]
     repo = FakeActionRepository({5: custom_actions})
     engine = EventEngine(dispatcher, action_repository=repo)
-    wp = Waypoint(id=5, nombre="Con secuencia custom", latitud=0, longitud=0, imagen="x.jpg")
+    wp = Waypoint(
+        id=5, nombre="Con secuencia custom", latitud=0, longitud=0, imagen="x.jpg"
+    )
 
     engine.handle_waypoint(wp)
 
@@ -124,7 +136,9 @@ def test_concurrent_waypoints_do_not_interfere() -> None:
     assert _wait_until(lambda: len(dispatcher.calls) >= 6)
 
     paths_shown = {
-        call[2].get("path") for call in dispatcher.calls if call[1] is ActionType.SHOW_IMAGE
+        call[2].get("path")
+        for call in dispatcher.calls
+        if call[1] is ActionType.SHOW_IMAGE
     }
     assert paths_shown == {"a.jpg", "b.jpg"}
 

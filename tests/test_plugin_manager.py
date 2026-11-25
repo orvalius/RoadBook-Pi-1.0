@@ -6,7 +6,7 @@ from pathlib import Path
 
 from core.plugin_manager import PluginManager, RoadBookPlugin, discover_plugin_classes
 
-VALID_PLUGIN_SOURCE = '''
+VALID_PLUGIN_SOURCE = """
 from core.plugin_manager import RoadBookPlugin
 
 class SamplePlugin(RoadBookPlugin):
@@ -17,11 +17,11 @@ class SamplePlugin(RoadBookPlugin):
 
     def execute(self, payload):
         self.last_payload = payload
-'''
+"""
 
 BROKEN_SYNTAX_SOURCE = "def esto no es python valido(((( :"
 
-INCOMPLETE_PLUGIN_SOURCE = '''
+INCOMPLETE_PLUGIN_SOURCE = """
 from core.plugin_manager import RoadBookPlugin
 
 class IncompletePlugin(RoadBookPlugin):
@@ -30,11 +30,11 @@ class IncompletePlugin(RoadBookPlugin):
     def on_load(self):
         pass
     # falta implementar execute() -> no debe poder instanciarse (ABC)
-'''
+"""
 
-NO_PLUGIN_CLASS_SOURCE = '''
+NO_PLUGIN_CLASS_SOURCE = """
 x = 1  # archivo sin ninguna clase RoadBookPlugin
-'''
+"""
 
 
 def _write(path: Path, content: str) -> None:
@@ -96,7 +96,9 @@ def test_load_from_directory_loads_enabled_plugin(tmp_path: Path) -> None:
     assert plugin.loaded is True  # on_load() se ejecutó al registrar
 
 
-def test_load_from_directory_unknown_enabled_name_does_not_crash(tmp_path: Path) -> None:
+def test_load_from_directory_unknown_enabled_name_does_not_crash(
+    tmp_path: Path,
+) -> None:
     _write(tmp_path / "sample.py", VALID_PLUGIN_SOURCE)
     manager = PluginManager()
 

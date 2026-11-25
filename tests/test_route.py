@@ -43,9 +43,15 @@ def test_parse_gpx_invalid_xml_returns_empty(tmp_path: Path) -> None:
 
 def test_order_waypoints_by_track() -> None:
     track = [(-31.60, -64.30), (-31.50, -64.35), (-31.40, -64.40)]
-    wp_a = Waypoint(id=1, nombre="A", latitud=-31.41, longitud=-64.39)  # cerca del índice 2
-    wp_b = Waypoint(id=2, nombre="B", latitud=-31.59, longitud=-64.31)  # cerca del índice 0
-    wp_c = Waypoint(id=3, nombre="C", latitud=-31.49, longitud=-64.34)  # cerca del índice 1
+    wp_a = Waypoint(
+        id=1, nombre="A", latitud=-31.41, longitud=-64.39
+    )  # cerca del índice 2
+    wp_b = Waypoint(
+        id=2, nombre="B", latitud=-31.59, longitud=-64.31
+    )  # cerca del índice 0
+    wp_c = Waypoint(
+        id=3, nombre="C", latitud=-31.49, longitud=-64.34
+    )  # cerca del índice 1
 
     ordered = order_waypoints_by_track([wp_a, wp_b, wp_c], track)
 
@@ -61,7 +67,9 @@ def test_order_waypoints_by_track_empty_track_returns_input_unchanged() -> None:
 def test_order_waypoints_fallback_uses_orden_ruta_then_id() -> None:
     wp1 = Waypoint(id=5, nombre="Primero", latitud=0, longitud=0, orden_ruta=2)
     wp2 = Waypoint(id=3, nombre="Segundo", latitud=0, longitud=0, orden_ruta=1)
-    wp3 = Waypoint(id=1, nombre="SinOrden", latitud=0, longitud=0)  # orden_ruta None -> al final
+    wp3 = Waypoint(
+        id=1, nombre="SinOrden", latitud=0, longitud=0
+    )  # orden_ruta None -> al final
 
     ordered = order_waypoints_fallback([wp1, wp2, wp3])
 
@@ -96,3 +104,14 @@ def test_resolve_route_order_uses_gpx_when_valid(tmp_path: Path) -> None:
     resolved = resolve_route_order([wp_a, wp_b], gpx_path)
 
     assert [w.nombre for w in resolved] == ["B", "A"]
+
+
+def test_resolve_route_returns_track(tmp_path: Path) -> None:
+    from core.route import resolve_route
+
+    gpx_path = tmp_path / "track.gpx"
+    gpx_path.write_text(GPX_SAMPLE, encoding="utf-8")
+    wps = [Waypoint(id=1, nombre="A", latitud=-31.6, longitud=-64.3)]
+    ordered, track = resolve_route(wps, gpx_path)
+    assert ordered == wps and len(track) == 3
+    assert resolve_route(wps, None) == (wps, [])

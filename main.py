@@ -23,13 +23,14 @@ from core.navigation_engine import NavigationEngine
 from core.plugin_manager import PluginManager
 from core.resource_manager import ResourceManager
 from core.roadbook_engine import RoadbookEngine, build_entries
-from core.route import resolve_route_order
+from core.route import resolve_route
 from database.action_repository import ActionRepository
 from database.db_manager import DatabaseManager
 from database.waypoint_repository import WaypointRepository
 from ui.action_event_adapter import QtActionAdapter
 from ui.gps_adapter import QtGpsAdapter
 from ui.main_window import MainWindow
+from ui.signal_handler import GracefulShutdown
 from ui.waypoint_event_adapter import WaypointEventAdapter
 
 logger = get_logger(__name__)
@@ -55,7 +56,10 @@ def main() -> int:
         enabled=config.get("audio.enabled", True),
         volume=config.get("audio.volume", 0.8),
     )
-    map_manager = MapManager(config.get("maps.mbtiles_path", "resources/maps/default.mbtiles"))
+    mbtiles_path = config.get("maps.mbtiles_path", "resources/maps/default.mbtiles")
+    map_manager = MapManager(
+        resource_manager.resolve_relative_path(mbtiles_path) if mbtiles_path else None
+    )
 
     plugin_manager = PluginManager()
     loaded_plugins = plugin_manager.load_from_directory(
@@ -66,7 +70,9 @@ def main() -> int:
         logger.info("Plugins cargados: %s", loaded_plugins)
 
     navigation_engine = NavigationEngine(
-        heading_tolerance_degrees=config.get("navigation.heading_tolerance_degrees", 45.0)
+        heading_tolerance_degrees=config.get(
+            "navigation.heading_tolerance_degrees", 45.0
+        )
     )
     active_waypoints = waypoint_repository.list_all(only_active=True)
     navigation_engine.load_waypoints(active_waypoints)
@@ -74,10 +80,12 @@ def main() -> int:
     # Roadbook Rendering Engine: arma la ruta (GPX si está configurado,
     # si no, conectando los waypoints activos) y el motor que resuelve
     # qué mostrar en la tira ante cada posición GPS.
-    ordered_waypoints = resolve_route_order(
-        active_waypoints, config.get("roadbook.gpx_path", None)
+    gpx_path = config.get("roadbook.gpx_path", None)
+    ordered_waypoints, track = resolve_route(
+        active_waypoints,
+        resource_manager.resolve_relative_path(gpx_path) if gpx_path else None,
     )
-    roadbook_engine = RoadbookEngine(build_entries(ordered_waypoints))
+    roadbook_engine = RoadbookEngine(build_entries(ordered_waypoints, track))
 
     action_dispatcher = ActionDispatcher()
     event_engine = EventEngine(
@@ -107,8 +115,13 @@ def main() -> int:
     action_adapter = QtActionAdapter(action_dispatcher)
 
     window = MainWindow(
-        config, waypoint_repository, navigation_engine, resource_manager, audio_manager,
-        action_repository, plugin_manager,
+        config,
+        waypoint_repository,
+        navigation_engine,
+        resource_manager,
+        audio_manager,
+        action_repository,
+        plugin_manager,
         map_manager=map_manager,
         roadbook_engine=roadbook_engine,
     )
@@ -116,15 +129,46 @@ def main() -> int:
     gps_adapter.position_received.connect(window.navigation_screen.update_position)
     action_adapter.action_triggered.connect(window.handle_action)
 
+    # Debe instalarse después de AudioManager: pygame/SDL pisa los
+    # handlers de SIGTERM/SIGINT al inicializarse (ver ui/signal_handler.py).
+    shutdown = GracefulShutdown(on_shutdown=app.quit)
+    shutdown.install()
+
     gps_adapter.start()
 
-    exit_code = app.exec()
-
-    gps_adapter.stop()
-    map_manager.close()
-    db.close()
+    exit_code = 1
+    try:
+        exit_code = app.exec()
+    finally:
+        _shutdown_services(gps_adapter, audio_manager, map_manager, db)
+        shutdown.uninstall()
     logger.info("=== RoadBook Pi finalizado (código %s) ===", exit_code)
     return exit_code
+
+
+def _shutdown_services(
+    gps_adapter: QtGpsAdapter,
+    audio_manager: AudioManager,
+    map_manager: MapManager,
+    db: DatabaseManager,
+) -> None:
+    """Libera recursos en orden inverso al arranque.
+
+    Cada paso es independiente: si uno falla, se loguea y se sigue con
+    el resto, para no dejar la base de datos abierta por un error en el
+    GPS (relevante si el cierre viene de un apagado de la Raspberry Pi).
+    """
+    steps = (
+        ("GPS", gps_adapter.stop),
+        ("audio", audio_manager.stop_all),
+        ("mapas", map_manager.close),
+        ("base de datos", db.close),
+    )
+    for name, step in steps:
+        try:
+            step()
+        except Exception:  # noqa: BLE001 - el cierre debe completarse igual
+            logger.exception("Error cerrando %s", name)
 
 
 if __name__ == "__main__":

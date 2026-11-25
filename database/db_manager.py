@@ -89,7 +89,8 @@ class DatabaseManager:
         logger.error(
             "Base de datos corrupta detectada en %s. Se preserva como %s "
             "y se arranca con una base nueva.",
-            self.db_path, quarantine_path,
+            self.db_path,
+            quarantine_path,
         )
         shutil.move(str(self.db_path), str(quarantine_path))
 
@@ -137,7 +138,7 @@ class DatabaseManager:
             self._connection = None
             logger.info("Conexión a base de datos cerrada")
 
-    def __enter__(self) -> "DatabaseManager":
+    def __enter__(self) -> DatabaseManager:
         self.connect()
         return self
 

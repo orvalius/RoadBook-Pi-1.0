@@ -695,3 +695,125 @@ tulip), sincronizada con la posición GPS, junto al mapa.
   desde la app (hoy se edita `roadbook.gpx_path` a mano en
   `config.json`) — queda como pulido posterior, igual que la gestión
   de mapas offline mencionada en el release 1.0.0.
+
+## [1.2.0] - Pulido: cierre ordenado, Mapas y ruta, tests de UI
+
+### Corregido
+
+- **La app no cerraba ante `SIGTERM`.** `pygame.mixer.init()`
+  inicializa SDL, que instala sus propios handlers de `SIGINT`/`SIGTERM`
+  y se tragaba la señal: cada `systemctl stop` o apagado de la Pi
+  esperaba el timeout de systemd y terminaba en `SIGKILL`, sin cerrar
+  GPS ni base de datos. Ahora:
+  - `AudioManager` desactiva los handlers de SDL
+    (`SDL_NO_SIGNAL_HANDLERS=1`).
+  - `ui/signal_handler.py` (`GracefulShutdown`): ante `SIGTERM`,
+    `SIGINT` o `SIGHUP` pide `QApplication.quit()`. Usa
+    `signal.set_wakeup_fd` + `QSocketNotifier` para despertar el loop
+    de Qt sin polling.
+  - `main.py` libera los recursos en un `finally`, paso a paso y
+    tolerante a errores (GPS → audio → mapas → base de datos).
+  - El service de systemd declara `KillSignal=SIGTERM` y
+    `TimeoutStopSec=15`.
+- **La imagen de los waypoints quedaba tapada** (regresión de la
+  v1.1.0). La pantalla de Navegación apila capas con `QStackedLayout`
+  en modo `StackAll`, que sube al frente el widget "actual" — el mapa +
+  tira — y dejaba debajo el readout GPS y el overlay de imagen del
+  Event Engine. Ahora el orden de capas se fija explícitamente y el
+  readout deja pasar los toques hacia la tira. Tests de píxeles reales
+  que lo verifican.
+- **La tira del roadbook era casi ilegible**: una regla
+  `background: transparent` sin selector en el área de scroll se
+  heredaba a todas las filas, que quedaban con texto claro sobre el
+  fondo claro de la ventana en vez del fondo oscuro del diseño.
+- `test_audio_manager`: la expectativa del test estaba mal (contaba una
+  reproducción de más); el código era correcto.
+
+### Agregado
+
+- **Pantalla "Mapas y ruta"** (`ui/screens/maps_route.py`), pendiente
+  desde los releases 1.0.0 y 1.1.0:
+  - Mapa offline: lista los `.mbtiles` de la biblioteca, muestra
+    nombre/formato/rango de zoom/tamaño, importa (validando *antes* de
+    copiar, en segundo plano con progreso y cancelar), usa o quita.
+    Rechaza mbtiles vectoriales.
+  - Track GPX: lista, importa, usa o quita; muestra puntos y km.
+  - Los cambios se aplican sin reiniciar y quedan guardados en
+    `config.json` como rutas relativas.
+- `core/map_manager.py`: `inspect_mbtiles()` / `MbtilesInfo`,
+  `MapManager.open()` para cambiar de mapa en caliente, apertura en
+  solo lectura (no crea archivos de journal en la SD).
+- `core/route.py`: `inspect_gpx()` / `GpxInfo`, `track_length_m()`, y
+  `parse_gpx` acepta rutas (`rtept`) cuando el GPX no tiene track.
+- `core/resource_manager.py`: categoría `routes`; importación con
+  callback de progreso; nunca deja un archivo a medio copiar.
+- Al cambiar de mapa, el zoom se ajusta al rango del archivo nuevo.
+- **Tests de la capa Qt** (pytest-qt, plataforma `offscreen`): pantalla
+  de navegación, widget de mapa, "Mapas y ruta", integración con
+  `MainWindow`, y cierre por `SIGTERM` de punta a punta en un proceso
+  con pygame activo. 182 → 238 tests.
+
+### Cambiado
+
+- Las rutas de la biblioteca (mapa, GPX) se resuelven contra la raíz
+  del proyecto, no contra el directorio desde donde se lanzó la app.
+- Código formateado con black y sin avisos de ruff.
+
+### Pendiente
+
+- Validación en hardware real (Raspberry Pi + receptor GPS + instalador
+  systemd).
+- Soporte de tiles vectoriales para Pi 4/5 (candidato a v1.3).
+
+## [1.3.0] - Tulipas, vehículo en el mapa y mapas generados
+
+### Agregado
+
+- **Lado y ángulo de cada giro** (`core/turns.py`): para cada nota de
+  la ruta, el cambio de rumbo con signo, el lado (izquierda / derecha /
+  recto), los grados redondeados a 5° y una escala orientativa (suave,
+  media, cerrada, horquilla). Con un track GPX activo se mide sobre la
+  curva real del camino (unos 120 m antes y después de la nota); sin
+  GPX, entre los tramos rectos que unen las notas. Notas superpuestas
+  (dos largadas en el mismo punto) se resuelven contra el siguiente
+  punto realmente distinto. `RoadbookEntry.giro`.
+- **Tulipas en la tira** (`ui/screens/tulip_widget.py`): pictograma de
+  rally dibujado con QPainter (entrada desde abajo, salida curva con el
+  ángulo real; las horquillas vuelven en paralelo) y el texto del giro
+  en cada fila. Arriba, **tarjeta de próxima curva** con tulipa grande,
+  giro, severidad y distancia que falta.
+- **Mapa en vivo** (`ui/screens/map_widget.py`): ruta, notas (la
+  próxima resaltada y numerada) y vehículo con su rumbo, dibujados
+  encima de los tiles en cada posición GPS. Los tiles se recomponen
+  solo cuando el vehículo entra en el margen del 20% del borde, con el
+  centro adelantado en la dirección de marcha. Sin mapa offline se
+  dibujan igual la ruta y el vehículo sobre fondo liso.
+- `core/map_compositor.py`: `MapViewport` (coordenadas ↔ píxeles) y
+  `look_ahead_center`.
+- **Generador de mapas offline** (`core/map_generator.py`,
+  `tools/generar_mapa_ruta.py` y botón "Generar desde la ruta" en
+  **Mapas y ruta**): `.mbtiles` raster de la zona de la ruta con
+  relieve ilustrativo continuo entre tiles y zooms, curvas de nivel,
+  cuadrícula, el camino (track GPX o tramos entre notas) y los nombres
+  de las notas sin superponerse. Los metadatos aclaran que no es
+  cartografía real. Nueva dependencia: `numpy`.
+
+### Cambiado
+
+- La lectura de posición/velocidad pasó a una barra abajo, sobre el
+  ancho del mapa: ya no tapa la tira ni el vehículo.
+- `core.route.resolve_route()` devuelve el orden y el track usado.
+
+### Corregido
+
+- Vaciar la ruta destruía el cartel "Sin ruta de roadbook activa" y al
+  volver a vaciarla se intentaba mostrar un widget ya destruido.
+- Distancias "345 m" se mostraban como "340 m" (redondeo al par).
+
+### Tests
+
+- 238 → 293: giros, viewport, generador (continuidad entre tiles,
+  metadatos, cancelación), tulipa (lado de la flecha por píxeles),
+  tarjeta de próxima curva, vehículo y ruta en el mapa, recompuesto
+  solo cerca del borde, botón de generar mapa.
+

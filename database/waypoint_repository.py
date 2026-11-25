@@ -7,9 +7,9 @@ tabla; siempre pasa por este repositorio.
 
 from __future__ import annotations
 
+from core.logger import get_logger
 from database.db_manager import DatabaseManager
 from database.models import Waypoint
-from core.logger import get_logger
 
 logger = get_logger(__name__)
 

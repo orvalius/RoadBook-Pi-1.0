@@ -7,7 +7,9 @@ from core.action_dispatcher import ActionType
 
 
 def test_describe_show_image() -> None:
-    text = describe_action(ActionType.SHOW_IMAGE.value, {"path": "resources/images/curva.jpg"})
+    text = describe_action(
+        ActionType.SHOW_IMAGE.value, {"path": "resources/images/curva.jpg"}
+    )
     assert text == "Mostrar imagen: curva.jpg"
 
 
@@ -17,7 +19,9 @@ def test_describe_show_image_without_path() -> None:
 
 
 def test_describe_play_audio() -> None:
-    text = describe_action(ActionType.PLAY_AUDIO.value, {"path": "resources/audio/beep.wav"})
+    text = describe_action(
+        ActionType.PLAY_AUDIO.value, {"path": "resources/audio/beep.wav"}
+    )
     assert text == "Reproducir audio: beep.wav"
 
 

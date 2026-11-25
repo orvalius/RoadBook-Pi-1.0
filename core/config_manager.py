@@ -17,7 +17,7 @@ logger = get_logger(__name__)
 
 DEFAULT_CONFIG: dict[str, Any] = {
     "app_name": "RoadBook Pi",
-    "version": "1.1.0",
+    "version": "1.3.0",
     "language": "es",
     "gps": {
         "backend": "simulator",

@@ -24,7 +24,9 @@ def test_gps_simulator_triggers_navigation_event() -> None:
 
     # Track del simulador: primera posición coincide exactamente con el waypoint
     track = [GpsPosition(latitude=-34.6037, longitude=-58.3816, has_fix=True)]
-    gps = GpsManager(backend="simulator", simulator_track=track, simulator_interval=0.05)
+    gps = GpsManager(
+        backend="simulator", simulator_track=track, simulator_interval=0.05
+    )
     gps.register_callback(engine.update_position)
 
     gps.start()

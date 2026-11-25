@@ -8,7 +8,9 @@ from core.action_dispatcher import ActionDispatcher, ActionType
 def test_execute_calls_registered_handler() -> None:
     dispatcher = ActionDispatcher()
     received = []
-    dispatcher.register_handler(ActionType.SHOW_IMAGE, lambda payload: received.append(payload))
+    dispatcher.register_handler(
+        ActionType.SHOW_IMAGE, lambda payload: received.append(payload)
+    )
 
     dispatcher.execute(ActionType.SHOW_IMAGE, {"path": "x.jpg"})
 
@@ -24,7 +26,9 @@ def test_execute_without_handler_does_not_raise() -> None:
 def test_execute_with_none_payload_passes_empty_dict() -> None:
     dispatcher = ActionDispatcher()
     received = []
-    dispatcher.register_handler(ActionType.LOG_EVENT, lambda payload: received.append(payload))
+    dispatcher.register_handler(
+        ActionType.LOG_EVENT, lambda payload: received.append(payload)
+    )
 
     dispatcher.execute(ActionType.LOG_EVENT, None)
 

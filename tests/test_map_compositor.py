@@ -12,7 +12,9 @@ from core.map_compositor import CachedTileSource, compose_map_image, should_redr
 class FakeTileSource:
     """Fuente de tiles falsa: siempre devuelve un PNG sólido de un color."""
 
-    def __init__(self, color: tuple[int, int, int] = (10, 20, 30), tile_size: int = 256) -> None:
+    def __init__(
+        self, color: tuple[int, int, int] = (10, 20, 30), tile_size: int = 256
+    ) -> None:
         self.color = color
         self.tile_size = tile_size
         self.calls: list[tuple[int, int, int]] = []
@@ -34,18 +36,24 @@ class EmptyTileSource:
 
 def test_compose_returns_correct_dimensions() -> None:
     source = FakeTileSource()
-    image = compose_map_image(source, -34.6037, -58.3816, zoom=15, width_px=400, height_px=300)
+    image = compose_map_image(
+        source, -34.6037, -58.3816, zoom=15, width_px=400, height_px=300
+    )
     assert image.size == (400, 300)
 
 
 def test_compose_with_none_source_returns_placeholder() -> None:
-    image = compose_map_image(None, -34.6037, -58.3816, zoom=15, width_px=400, height_px=300)
+    image = compose_map_image(
+        None, -34.6037, -58.3816, zoom=15, width_px=400, height_px=300
+    )
     assert image.size == (400, 300)
 
 
 def test_compose_with_empty_tiles_does_not_crash() -> None:
     source = EmptyTileSource()
-    image = compose_map_image(source, -34.6037, -58.3816, zoom=15, width_px=400, height_px=300)
+    image = compose_map_image(
+        source, -34.6037, -58.3816, zoom=15, width_px=400, height_px=300
+    )
     assert image.size == (400, 300)
 
 
@@ -69,12 +77,18 @@ def test_should_redraw_true_on_first_call() -> None:
 
 def test_should_redraw_false_when_barely_moved() -> None:
     # Mismo punto -> distancia 0, no debe redibujar
-    assert should_redraw(-34.6037, -58.3816, -34.6037, -58.3816, threshold_meters=20.0) is False
+    assert (
+        should_redraw(-34.6037, -58.3816, -34.6037, -58.3816, threshold_meters=20.0)
+        is False
+    )
 
 
 def test_should_redraw_true_when_moved_enough() -> None:
     # ~157km de diferencia, muy por encima del threshold
-    assert should_redraw(-34.6037, -58.3816, -33.6037, -57.3816, threshold_meters=20.0) is True
+    assert (
+        should_redraw(-34.6037, -58.3816, -33.6037, -57.3816, threshold_meters=20.0)
+        is True
+    )
 
 
 def test_cached_tile_source_avoids_redundant_decode() -> None:

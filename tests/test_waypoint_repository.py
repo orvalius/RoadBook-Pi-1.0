@@ -26,7 +26,9 @@ def test_create_assigns_id(tmp_path: Path) -> None:
 
 def test_get_returns_created_waypoint(tmp_path: Path) -> None:
     repo = _make_repo(tmp_path)
-    created = repo.create(Waypoint(nombre="Puente", latitud=-34.6, longitud=-58.4, radio=80))
+    created = repo.create(
+        Waypoint(nombre="Puente", latitud=-34.6, longitud=-58.4, radio=80)
+    )
     fetched = repo.get(created.id)
     assert fetched.nombre == "Puente"
     assert fetched.radio == 80

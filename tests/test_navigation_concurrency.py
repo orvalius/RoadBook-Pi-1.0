@@ -9,7 +9,6 @@ No debe lanzar excepciones ni corromper el estado interno.
 from __future__ import annotations
 
 import threading
-import time
 
 from core.gps_manager import GpsPosition
 from core.navigation_engine import NavigationEngine
@@ -31,7 +30,9 @@ def test_concurrent_load_and_update_does_not_crash() -> None:
 
     def ui_loop() -> None:
         for i in range(200):
-            wp = Waypoint(id=i % 5, nombre=f"WP{i}", latitud=0.0, longitud=0.0, radio=100.0)
+            wp = Waypoint(
+                id=i % 5, nombre=f"WP{i}", latitud=0.0, longitud=0.0, radio=100.0
+            )
             try:
                 engine.load_waypoints([wp])
             except Exception as exc:  # noqa: BLE001

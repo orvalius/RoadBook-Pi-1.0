@@ -1,10 +1,12 @@
 """Widget Qt de la tira de Roadbook (Roadbook Rendering Engine).
 
 Renderiza continuamente la secuencia de ``RoadbookEntry`` de la ruta
-activa: ícono + distancia parcial/total + texto de instrucción, con la
-entrada actual resaltada y con su propia barra de progreso, las
-pasadas atenuadas, y auto-scroll para mantener la actual siempre
-visible — igual que un libro de ruta de rally real, pero en vivo.
+activa: tulipa (para qué lado dobla y cuánto) + distancia parcial/total
++ giro en texto + instrucción, con la entrada actual resaltada y con su
+propia barra de progreso, las pasadas atenuadas, y auto-scroll para
+mantener la actual siempre visible — igual que un libro de ruta de
+rally real, pero en vivo. Arriba, una tarjeta grande con la próxima
+curva y la distancia que falta para llegar.
 """
 
 from __future__ import annotations
@@ -21,6 +23,7 @@ from PyQt6.QtWidgets import (
 )
 
 from core.roadbook_engine import RoadbookEntry, RoadbookState
+from ui.screens.tulip_widget import TulipWidget
 
 # Pictogramas de relleno (símbolos Unicode). Corresponden al campo
 # Waypoint.icono; se puede ampliar sin tocar el resto del widget.
@@ -43,6 +46,84 @@ def _format_km(meters: float) -> str:
     return f"{meters / 1000:.2f}".replace(".", ",")
 
 
+TURN_STYLE = "color: {color}; font-size: 13px; font-weight: 700;"
+
+
+def _end_kind(entry: RoadbookEntry) -> str:
+    """Qué dibujar en una nota sin giro: la primera es largada, el resto llegada."""
+    return "largada" if entry.orden == 0 else "llegada"
+
+
+def turn_caption(entry: RoadbookEntry) -> str:
+    """Texto del giro de una nota: 'Derecha 45° · media', 'Largada', etc."""
+    icon = ICON_MAP.get(entry.waypoint.icono or "generico", "")
+    prefix = "" if entry.waypoint.icono in (None, "generico") else f"{icon} "
+    giro = entry.giro
+    if giro is None:
+        return f"{prefix}{_end_kind(entry).capitalize()}"
+    if giro.severidad:
+        return f"{prefix}{giro.texto} · {giro.severidad}"
+    return f"{prefix}{giro.texto}"
+
+
+class NextTurnCard(QFrame):
+    """Tarjeta grande con la próxima curva: tulipa, giro y distancia que falta."""
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setObjectName("nextTurn")
+        self.setStyleSheet(
+            "QFrame#nextTurn { background: #232935; border-bottom: 1px solid #2a3140; }"
+        )
+        self.tulip = TulipWidget(64)
+        self.tulip.set_tone("current")
+        self.turn_label = QLabel("—")
+        self.turn_label.setStyleSheet(
+            "color: #ff8a00; font-size: 22px; font-weight: 700;"
+        )
+        self.distance_label = QLabel("")
+        self.distance_label.setStyleSheet(
+            "color: #e8e6e1; font-size: 15px; font-weight: 600;"
+        )
+        self.name_label = QLabel("")
+        self.name_label.setStyleSheet("color: #8b93a1; font-size: 11.5px;")
+        self.name_label.setWordWrap(True)
+
+        texts = QVBoxLayout()
+        texts.setSpacing(0)
+        texts.setContentsMargins(0, 0, 0, 0)
+        texts.addWidget(self.turn_label)
+        texts.addWidget(self.distance_label)
+        texts.addWidget(self.name_label)
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(12, 10, 12, 10)
+        layout.setSpacing(12)
+        layout.addWidget(self.tulip, 0, Qt.AlignmentFlag.AlignTop)
+        layout.addLayout(texts, 1)
+
+    def show_entry(self, entry: RoadbookEntry, distance_m: float | None) -> None:
+        """Muestra la nota que viene y cuánto falta para llegar."""
+        self.tulip.set_turn(entry.giro, kind=_end_kind(entry))
+        giro = entry.giro
+        self.turn_label.setText(
+            _end_kind(entry).capitalize() if giro is None else giro.texto
+        )
+        parts = [giro.severidad] if giro is not None and giro.severidad else []
+        if distance_m is not None:
+            parts.append(f"en {_format_distance(distance_m)}")
+        self.distance_label.setText(" · ".join(parts))
+        self.name_label.setText(entry.waypoint.nombre)
+
+
+def _format_distance(meters: float) -> str:
+    """'350 m' por debajo de 1 km, '12,4 km' por encima."""
+    if meters < 1000:
+        # Redondeo hacia arriba en .5 (round() de Python redondea al par: 345 -> 340).
+        return f"{int(meters / 10 + 0.5) * 10} m"
+    return f"{meters / 1000:.1f} km".replace(".", ",")
+
+
 class RoadbookEntryRow(QFrame):
     """Una fila de la tira: ícono + distancia parcial/total + texto.
 
@@ -58,14 +139,8 @@ class RoadbookEntryRow(QFrame):
         self.set_state("upcoming")
 
     def _build_ui(self) -> None:
-        icon_text = ICON_MAP.get(self.entry.waypoint.icono or "generico", "●")
-
-        self.icon_label = QLabel(icon_text)
-        self.icon_label.setFixedSize(34, 34)
-        self.icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.icon_label.setStyleSheet(
-            "background: #232935; border: 1px solid #2a3140; border-radius: 8px; font-size: 16px;"
-        )
+        self.tulip = TulipWidget(40)
+        self.tulip.set_turn(self.entry.giro, kind=_end_kind(self.entry))
 
         km_layout = QVBoxLayout()
         km_layout.setSpacing(0)
@@ -86,15 +161,24 @@ class RoadbookEntryRow(QFrame):
         km_container.setLayout(km_layout)
         km_container.setFixedWidth(60)
 
-        self.text_label = QLabel(self.entry.waypoint.descripcion or self.entry.waypoint.nombre)
+        self.turn_label = QLabel(turn_caption(self.entry))
+        self.turn_label.setWordWrap(True)
+        self.text_label = QLabel(
+            self.entry.waypoint.descripcion or self.entry.waypoint.nombre
+        )
         self.text_label.setWordWrap(True)
         self.text_label.setStyleSheet("color: #e8e6e1; font-size: 12.5px;")
+        text_box = QVBoxLayout()
+        text_box.setContentsMargins(0, 0, 0, 0)
+        text_box.setSpacing(1)
+        text_box.addWidget(self.turn_label)
+        text_box.addWidget(self.text_label)
 
         top_row = QHBoxLayout()
         top_row.setSpacing(10)
-        top_row.addWidget(self.icon_label)
-        top_row.addWidget(km_container)
-        top_row.addWidget(self.text_label, 1)
+        top_row.addWidget(self.tulip, 0, Qt.AlignmentFlag.AlignTop)
+        top_row.addWidget(km_container, 0, Qt.AlignmentFlag.AlignTop)
+        top_row.addLayout(text_box, 1)
 
         self.progress_bar = QProgressBar()
         self.progress_bar.setFixedHeight(3)
@@ -126,30 +210,46 @@ class RoadbookEntryRow(QFrame):
                 "QFrame#roadbookRow { background: rgba(255,138,0,0.14); "
                 "border-left: 3px solid #ff8a00; border-bottom: 1px solid #2a3140; }"
             )
-            self.text_label.setStyleSheet("color: #e8e6e1; font-size: 12.5px; font-weight: 600;")
-            self.total_label.setStyleSheet(
-                "color: #ff8a00; font-weight: 600; font-family: monospace; font-size: 12px;"
+            self.text_label.setStyleSheet(
+                "color: #e8e6e1; font-size: 12.5px; font-weight: 600;"
             )
+            self.total_label.setStyleSheet(
+                "color: #ff8a00; font-weight: 600; font-family: monospace; "
+                "font-size: 12px;"
+            )
+            self.turn_label.setStyleSheet(TURN_STYLE.format(color="#ff8a00"))
+            self.tulip.set_tone("current")
             self.progress_bar.show()
             self.progress_bar.setValue(int(max(0.0, min(1.0, progress)) * 100))
         elif state == "passed":
             self.setStyleSheet(
-                "QFrame#roadbookRow { background: transparent; border-bottom: 1px solid #2a3140; }"
+                "QFrame#roadbookRow { background: transparent; border-bottom: 1px "
+                "solid #2a3140; }"
             )
             self.text_label.setStyleSheet("color: #4a5160; font-size: 12.5px;")
+            self.turn_label.setStyleSheet(TURN_STYLE.format(color="#4a5160"))
+            self.tulip.set_tone("passed")
             self.total_label.setStyleSheet(
-                "color: #4a5160; font-weight: 600; font-family: monospace; font-size: 12px;"
+                "color: #4a5160; font-weight: 600; font-family: monospace; "
+                "font-size: 12px;"
             )
             self.progress_bar.hide()
         else:  # upcoming
             self.setStyleSheet(
-                "QFrame#roadbookRow { background: transparent; border-bottom: 1px solid #2a3140; }"
+                "QFrame#roadbookRow { background: transparent; border-bottom: 1px "
+                "solid #2a3140; }"
             )
             self.text_label.setStyleSheet("color: #e8e6e1; font-size: 12.5px;")
+            self.turn_label.setStyleSheet(TURN_STYLE.format(color="#e8e6e1"))
+            self.tulip.set_tone("upcoming")
             self.total_label.setStyleSheet(
-                "color: #e8e6e1; font-weight: 600; font-family: monospace; font-size: 12px;"
+                "color: #e8e6e1; font-weight: 600; font-family: monospace; "
+                "font-size: 12px;"
             )
             self.progress_bar.hide()
+
+
+STRIP_BG = "#1c2128"
 
 
 class RoadbookStripWidget(QWidget):
@@ -158,10 +258,21 @@ class RoadbookStripWidget(QWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._rows: list[RoadbookEntryRow] = []
+        self._entries: list[RoadbookEntry] = []
         self._build_ui()
 
     def _build_ui(self) -> None:
-        self.setStyleSheet("background: #1c2128;")
+        # Reglas con selector a propósito: una regla suelta como
+        # "background: transparent" en el QScrollArea se hereda a todas
+        # las filas y deja ver el fondo claro de la ventana debajo del
+        # texto claro de la tira (ilegible). Ver test_ui_roadbook_strip.
+        self.setObjectName("roadbookStrip")
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self.setStyleSheet(
+            f"#roadbookStrip, #roadbookContainer {{ background: {STRIP_BG}; }}"
+            f"QScrollArea {{ background: {STRIP_BG}; border: none; }}"
+            f"QScrollArea > QWidget {{ background: {STRIP_BG}; }}"
+        )
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -174,12 +285,18 @@ class RoadbookStripWidget(QWidget):
         )
         layout.addWidget(header)
 
+        self.next_card = NextTurnCard()
+        self.next_card.hide()
+        layout.addWidget(self.next_card)
+
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
-        self.scroll_area.setStyleSheet("background: transparent; border: none;")
-        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.scroll_area.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
 
         self.container = QWidget()
+        self.container.setObjectName("roadbookContainer")
         self.container_layout = QVBoxLayout(self.container)
         self.container_layout.setContentsMargins(0, 0, 0, 0)
         self.container_layout.setSpacing(0)
@@ -190,7 +307,9 @@ class RoadbookStripWidget(QWidget):
 
         self.empty_label = QLabel("Sin ruta de roadbook activa")
         self.empty_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.empty_label.setStyleSheet("color: #565d6b; font-size: 12px; padding: 20px;")
+        self.empty_label.setStyleSheet(
+            "color: #565d6b; font-size: 12px; padding: 20px;"
+        )
         self.container_layout.insertWidget(0, self.empty_label)
 
     def set_entries(self, entries: list[RoadbookEntry]) -> None:
@@ -203,14 +322,22 @@ class RoadbookStripWidget(QWidget):
         while self.container_layout.count():
             item = self.container_layout.takeAt(0)
             widget = item.widget()
-            if widget:
+            # El cartel de "sin ruta" se reutiliza: no destruirlo.
+            if widget is not None and widget is not self.empty_label:
                 widget.deleteLater()
 
         self._rows = []
+        self._entries = list(entries)
 
         if not entries:
             self.container_layout.addWidget(self.empty_label)
+            self.empty_label.show()
+            self.next_card.hide()
             return
+
+        self.empty_label.hide()
+        self.next_card.show_entry(entries[0], None)
+        self.next_card.show()
 
         for entry in entries:
             row = RoadbookEntryRow(entry)
@@ -236,5 +363,8 @@ class RoadbookStripWidget(QWidget):
                 row.set_state("upcoming")
 
         if 0 <= state.current_index < len(self._rows):
+            self.next_card.show_entry(
+                self._entries[state.current_index], state.distance_to_next_m
+            )
             current_row = self._rows[state.current_index]
             self.scroll_area.ensureWidgetVisible(current_row, yMargin=80)

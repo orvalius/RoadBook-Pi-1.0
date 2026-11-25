@@ -140,7 +140,8 @@ class EventEngine:
 
         logger.info(
             "EventEngine: ejecutando secuencia de %d paso(s) para waypoint %s",
-            len(actions), waypoint.nombre,
+            len(actions),
+            waypoint.nombre,
         )
         runner.start()
 
@@ -167,32 +168,51 @@ class EventEngine:
 
         if waypoint.imagen:
             actions.append(
-                Action(waypoint_id=wp_id, orden=order, tipo=ActionType.SHOW_IMAGE.value,
-                       payload={"path": waypoint.imagen})
+                Action(
+                    waypoint_id=wp_id,
+                    orden=order,
+                    tipo=ActionType.SHOW_IMAGE.value,
+                    payload={"path": waypoint.imagen},
+                )
             )
             order += 1
 
         if waypoint.audio:
             actions.append(
-                Action(waypoint_id=wp_id, orden=order, tipo=ActionType.PLAY_AUDIO.value,
-                       payload={"path": waypoint.audio})
+                Action(
+                    waypoint_id=wp_id,
+                    orden=order,
+                    tipo=ActionType.PLAY_AUDIO.value,
+                    payload={"path": waypoint.audio},
+                )
             )
             order += 1
 
         if waypoint.imagen:
             actions.append(
-                Action(waypoint_id=wp_id, orden=order, tipo=ActionType.WAIT.value,
-                       payload={"seconds": self.default_image_display_seconds})
+                Action(
+                    waypoint_id=wp_id,
+                    orden=order,
+                    tipo=ActionType.WAIT.value,
+                    payload={"seconds": self.default_image_display_seconds},
+                )
             )
             order += 1
             actions.append(
-                Action(waypoint_id=wp_id, orden=order, tipo=ActionType.HIDE_IMAGE.value, payload={})
+                Action(
+                    waypoint_id=wp_id,
+                    orden=order,
+                    tipo=ActionType.HIDE_IMAGE.value,
+                    payload={},
+                )
             )
             order += 1
 
         actions.append(
             Action(
-                waypoint_id=wp_id, orden=order, tipo=ActionType.LOG_EVENT.value,
+                waypoint_id=wp_id,
+                orden=order,
+                tipo=ActionType.LOG_EVENT.value,
                 payload={"message": f"Waypoint alcanzado: {waypoint.nombre}"},
             )
         )

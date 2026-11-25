@@ -1,6 +1,6 @@
 # RoadBook Pi
 
-**v1.1.0** — Plataforma de navegación basada en eventos geográficos
+**v1.3.0** — Plataforma de navegación basada en eventos geográficos
 para Raspberry Pi.
 
 No es un GPS tradicional: ejecuta acciones automáticamente (mostrar
@@ -18,7 +18,10 @@ Licencia: [MIT](LICENSE).
 
 Los 12 sprints del roadmap original están completos, más un
 rediseño posterior del Graphic Engine (Sprint 6) como Roadbook
-Rendering Engine. Ver `docs/CHANGELOG.md` para el detalle de cada uno.
+Rendering Engine y una ronda de pulido (v1.2.0: cierre ordenado bajo
+systemd, pantalla "Mapas y ruta", tests de la capa Qt) y v1.3.0 (tulipas
+con lado y ángulo de cada giro, vehículo en vivo sobre el mapa,
+generador de mapas offline). Ver `docs/CHANGELOG.md` para el detalle de cada uno.
 
 | Sprint | Descripción         | Estado        |
 |--------|----------------------|----------------|
@@ -42,6 +45,15 @@ Rendering Engine. Ver `docs/CHANGELOG.md` para el detalle de cada uno.
   ícono, distancia parcial/total, texto de instrucción, con la nota
   actual resaltada y auto-scroll. Independiente del disparo de
   eventos: solo visualiza.
+- **Tulipas de giro**: cada nota de la tira muestra el pictograma de
+  rally con la flecha del giro, el lado y los grados ("Derecha 45° ·
+  media"), y arriba una tarjeta grande con la próxima curva y cuánto
+  falta. Con un track GPX activo, el ángulo es el de la curva real del
+  camino; sin GPX, el cambio de rumbo entre notas.
+- **Mapa en vivo**: la ruta, la próxima nota resaltada y el vehículo
+  (flecha con el rumbo) moviéndose sobre el mapa. El fondo se recompone
+  solo cuando el vehículo se acerca al borde, así el punto se mueve
+  fluido en una Pi 2. Sin mapa offline se ve igual la ruta y la posición.
 - **Waypoints con condiciones**: radio de disparo, velocidad mínima,
   rumbo de aproximación, re-disparo o disparo único por sesión.
 - **Secuencias de acciones configurables** por waypoint: mostrar
@@ -50,7 +62,8 @@ Rendering Engine. Ver `docs/CHANGELOG.md` para el detalle de cada uno.
 - **GPS con 3 backends**: `gpsd`, `serial` (NEO-6M/NEO-M8N directo), o
   `simulator` para desarrollar sin hardware.
 - **Mapas offline** vía MBTiles (raster, pensado para el límite de
-  CPU/GPU de una Raspberry Pi 2).
+  CPU/GPU de una Raspberry Pi 2), elegibles e importables desde la
+  pantalla **Mapas y ruta**, sin reiniciar.
 - **Biblioteca de recursos** (imágenes, audio, iconos) con importación
   y organización propia — nunca rutas absolutas.
 - **Plugins** en Python puro, opt-in explícito por nombre en la config.
@@ -130,10 +143,10 @@ Todo vive en `config.json` (se crea con valores por defecto en el
 primer arranque). Claves principales:
 
 - `gps.backend`: `"gpsd"`, `"serial"` o `"simulator"`.
-- `maps.mbtiles_path`: ruta a un archivo `.mbtiles` propio (no se
-  incluye ninguno — ver nota abajo).
-- `roadbook.gpx_path`: ruta a un track GPX propio para ordenar la tira
-  del roadbook (opcional — ver sección siguiente).
+- `maps.mbtiles_path`: mapa offline activo (no se incluye ninguno —
+  ver nota abajo). Se elige desde la pantalla **Mapas y ruta**.
+- `roadbook.gpx_path`: track GPX para ordenar la tira del roadbook
+  (opcional). También se elige desde **Mapas y ruta**.
 - `plugins.enabled`: lista de nombres de plugins a cargar desde
   `plugins/`.
 - `navigation.heading_tolerance_degrees`, `graphics.image_display_seconds`,
@@ -144,8 +157,10 @@ primer arranque). Claves principales:
 La tira de notas junto al mapa conecta los waypoints **activos** en
 un orden determinado así:
 
-1. Si `roadbook.gpx_path` apunta a un track GPX válido, ordena los
-   waypoints según su posición a lo largo de ese track.
+1. Si hay un GPX activo (pantalla **Mapas y ruta** → "Track de la
+   ruta"), ordena los waypoints según su posición a lo largo de ese
+   track. Se aceptan GPX con track (`trkpt`) o, si no tienen, con
+   ruta (`rtept`).
 2. Si no, ordena por el campo `orden_ruta` de cada waypoint (editable
    desde el formulario de Waypoints), y como último recurso, por id
    de creación.
@@ -159,9 +174,18 @@ un track preciso.
 
 El proyecto no incluye ningún archivo `.mbtiles` (son de cientos de MB
 a varios GB). Generá el tuyo con herramientas como
-[MOBAC](https://mobac.sourceforge.io/) o `mb-util`, colocalo en
-`resources/maps/`, y apuntá `maps.mbtiles_path` en la config. Sin ese
-archivo, la app funciona igual — solo sin mapa visual de fondo.
+[MOBAC](https://mobac.sourceforge.io/) o `mb-util` (en formato raster PNG/JPG: los
+tiles vectoriales no se pueden dibujar) e importalo desde **Mapas y
+ruta** → "Importar…": se valida, se copia a `resources/maps/` con
+barra de progreso, y queda activo al instante.
+
+Si no tenés un mapa de la zona, **Mapas y ruta** → "Generar desde la
+ruta" (o `python tools/generar_mapa_ruta.py`) arma uno a partir de la
+ruta cargada: relieve ilustrativo, cuadrícula de coordenadas, el
+camino y el nombre de cada nota. **No es cartografía real**: el relieve
+es textura generada; solo la ruta, las notas y la cuadrícula tienen
+posición real. Sin ningún mapa, la app muestra la ruta y el vehículo
+sobre un fondo liso.
 
 ## Escribir un plugin propio
 
@@ -173,9 +197,12 @@ habilitarlo explícitamente.
 ## Tests
 
 ```bash
-pip install pytest
 pytest
 ```
+
+Incluye tests de la capa Qt (`tests/test_ui_*.py`) que corren sin
+pantalla (plataforma `offscreen`); necesitan `pytest-qt`, que ya está
+en `requirements.txt`.
 
 ## Formato y linting
 

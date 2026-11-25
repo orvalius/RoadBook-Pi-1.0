@@ -171,17 +171,43 @@ del GPS pase cerca de tus waypoints. La forma más simple:
 
 ### 6.3. Usar un track GPX propio (opcional, más fiel a un reconocimiento real)
 
-Si tenés un archivo `.gpx` grabado (por ejemplo, desde una app de
-tracking en tu celular durante un reconocimiento de caminos):
+Si tenés un archivo `.gpx` (grabado con una app de tracking durante un
+reconocimiento, o el que publica el organizador):
 
-1. Copialo a algún lugar del proyecto, ej: `resources/tracks/mi_recorrido.gpx`.
-2. En `config.json`, seteá:
-   ```json
-   "roadbook": { "gpx_path": "resources/tracks/mi_recorrido.gpx" }
-   ```
-3. Reiniciá la app. El Roadbook Engine va a ordenar tus waypoints
-   según su posición a lo largo de ese track, en vez de por el campo
-   "orden en la ruta".
+1. Andá a **Mapas y ruta** → "Track de la ruta (.gpx)" → **Importar…**
+   y elegí el archivo.
+2. La app lo valida (muestra cantidad de puntos y km), lo copia a
+   `resources/routes/` y lo activa en el momento, sin reiniciar.
+3. Volvé a **Navegación**: la tira ahora ordena tus waypoints según su
+   posición a lo largo de ese track. Para volver al orden de los
+   waypoints, elegí "(sin GPX…)" y tocá **Usar esta ruta**.
+
+Sirven tanto GPX con track (`trkpt`) como con ruta (`rtept`).
+
+### 6.4. Cargar un mapa offline (opcional)
+
+1. Generá un `.mbtiles` **raster** de la zona (MOBAC, `mb-util`, etc.).
+2. **Mapas y ruta** → "Mapa offline (.mbtiles)" → **Importar…**. Se
+   valida antes de copiar (rechaza archivos que no son MBTiles o que
+   tienen tiles vectoriales) y la copia muestra progreso; se puede
+   cancelar.
+3. Queda activo apenas termina. Si el zoom configurado no existe en
+   ese mapa, se ajusta solo al más cercano disponible.
+
+¿No tenés un mapa de la zona? Con los waypoints cargados (por ejemplo,
+los del Rally de Córdoba del punto 6.1), tocá **Generar desde la
+ruta**: en unos segundos arma un mapa ilustrativo de la zona y lo
+activa. También por consola: `python tools/generar_mapa_ruta.py`.
+
+### 6.5. Ver el vehículo y las curvas
+
+En **Navegación**, con el GPS simulado o real:
+
+- La flecha azul es el vehículo, apuntando hacia donde va; la línea
+  naranja es la ruta y el círculo numerado, la próxima nota.
+- Arriba de la tira, la tarjeta grande muestra la próxima curva: para
+  qué lado dobla, cuántos grados, qué tan cerrada y cuánto falta.
+- Cada fila de la tira tiene su tulipa con la flecha del giro.
 
 ## 7. Probar secuencias de acciones custom
 
@@ -218,8 +244,9 @@ instante, sin reiniciar la app.
 pytest
 ```
 
-Deberían pasar todos (son más de 160 tests entre lógica de negocio,
-GPS, base de datos, event engine, plugins, roadbook engine, etc.). Si
+Deberían pasar todos (son más de 235 tests entre lógica de negocio,
+GPS, base de datos, event engine, plugins, roadbook engine y la
+interfaz Qt, que se prueba sin abrir ventanas). Si
 alguno falla, copiame el error y lo reviso.
 
 ## 11. Usar GPS real (opcional)
@@ -237,5 +264,6 @@ Cuando tengas la Raspberry Pi con un receptor NEO-6M/NEO-M8N conectado:
 | La imagen no aparece | Radio del waypoint muy chico, o coordenadas no coinciden con el track | Aumentá el radio, o revisá las coordenadas del track en `gps_manager.py` |
 | La tira de roadbook no avanza | El GPS simulado no pasa cerca de tus waypoints | Usá coordenadas cercanas al track simulado (ver 6.2), o cargá un GPX real |
 | La tira muestra "Sin ruta de roadbook activa" | No hay waypoints activos, o ninguno tiene `orden_ruta` ni hay GPX configurado | Creá al menos un waypoint activo; el orden por id ya alcanza para ver algo |
+| El mapa se ve gris aunque cargué un .mbtiles | La zona del mapa no cubre la posición actual (el GPS simulado recorre Buenos Aires) | Revisá en **Mapas y ruta** el rango del archivo; con el simulador, generá el mapa de esa zona |
 | `ModuleNotFoundError` al arrancar | El entorno virtual no está activado | Volvé a correr `source .venv/bin/activate` (o el equivalente en Windows) antes de `python main.py` |
 | La ventana no aparece / crashea sin error visible | Revisá `logs/roadbook_pi.log`, ahí queda el traceback completo |

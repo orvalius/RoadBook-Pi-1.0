@@ -85,7 +85,8 @@ def discover_plugin_classes(directory: str | Path) -> dict[str, type[RoadBookPlu
 
         plugin_class = next(
             (
-                obj for _, obj in inspect.getmembers(module, inspect.isclass)
+                obj
+                for _, obj in inspect.getmembers(module, inspect.isclass)
                 if issubclass(obj, RoadBookPlugin) and obj is not RoadBookPlugin
             ),
             None,
@@ -139,7 +140,9 @@ class PluginManager:
             if plugin_class is None:
                 logger.warning(
                     "Plugin habilitado '%s' no se encontró en %s (¿nombre "
-                    "correcto? ¿archivo presente?)", name, directory,
+                    "correcto? ¿archivo presente?)",
+                    name,
+                    directory,
                 )
                 continue
 

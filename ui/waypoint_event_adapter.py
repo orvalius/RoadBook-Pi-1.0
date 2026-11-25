@@ -32,7 +32,9 @@ class WaypointEventAdapter(QObject):
 
     waypoint_reached = pyqtSignal(object)  # payload: Waypoint
 
-    def __init__(self, navigation_engine: NavigationEngine, parent: QObject | None = None) -> None:
+    def __init__(
+        self, navigation_engine: NavigationEngine, parent: QObject | None = None
+    ) -> None:
         super().__init__(parent)
         navigation_engine.on_waypoint_reached = self._on_reached
 

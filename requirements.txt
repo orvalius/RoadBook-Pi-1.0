@@ -2,8 +2,10 @@ PyQt6>=6.6
 pyserial>=3.5
 Pillow>=10.0
 pygame>=2.5
+numpy>=1.24  # generador de mapas (core/map_generator.py)
 
 # Herramientas de desarrollo
 pytest>=8.0
+pytest-qt>=4.4
 black>=24.0
 ruff>=0.4
