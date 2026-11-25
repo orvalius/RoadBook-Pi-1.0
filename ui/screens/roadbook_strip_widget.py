@@ -64,7 +64,8 @@ class RoadbookEntryRow(QFrame):
         self.icon_label.setFixedSize(34, 34)
         self.icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.icon_label.setStyleSheet(
-            "background: #232935; border: 1px solid #2a3140; border-radius: 8px; font-size: 16px;"
+            "background: #232935; border: 1px solid #2a3140; border-radius: 8px; "
+            "font-size: 16px;"
         )
 
         km_layout = QVBoxLayout()
@@ -86,7 +87,9 @@ class RoadbookEntryRow(QFrame):
         km_container.setLayout(km_layout)
         km_container.setFixedWidth(60)
 
-        self.text_label = QLabel(self.entry.waypoint.descripcion or self.entry.waypoint.nombre)
+        self.text_label = QLabel(
+            self.entry.waypoint.descripcion or self.entry.waypoint.nombre
+        )
         self.text_label.setWordWrap(True)
         self.text_label.setStyleSheet("color: #e8e6e1; font-size: 12.5px;")
 
@@ -126,28 +129,35 @@ class RoadbookEntryRow(QFrame):
                 "QFrame#roadbookRow { background: rgba(255,138,0,0.14); "
                 "border-left: 3px solid #ff8a00; border-bottom: 1px solid #2a3140; }"
             )
-            self.text_label.setStyleSheet("color: #e8e6e1; font-size: 12.5px; font-weight: 600;")
+            self.text_label.setStyleSheet(
+                "color: #e8e6e1; font-size: 12.5px; font-weight: 600;"
+            )
             self.total_label.setStyleSheet(
-                "color: #ff8a00; font-weight: 600; font-family: monospace; font-size: 12px;"
+                "color: #ff8a00; font-weight: 600; font-family: monospace; "
+                "font-size: 12px;"
             )
             self.progress_bar.show()
             self.progress_bar.setValue(int(max(0.0, min(1.0, progress)) * 100))
         elif state == "passed":
             self.setStyleSheet(
-                "QFrame#roadbookRow { background: transparent; border-bottom: 1px solid #2a3140; }"
+                "QFrame#roadbookRow { background: transparent; border-bottom: 1px "
+                "solid #2a3140; }"
             )
             self.text_label.setStyleSheet("color: #4a5160; font-size: 12.5px;")
             self.total_label.setStyleSheet(
-                "color: #4a5160; font-weight: 600; font-family: monospace; font-size: 12px;"
+                "color: #4a5160; font-weight: 600; font-family: monospace; "
+                "font-size: 12px;"
             )
             self.progress_bar.hide()
         else:  # upcoming
             self.setStyleSheet(
-                "QFrame#roadbookRow { background: transparent; border-bottom: 1px solid #2a3140; }"
+                "QFrame#roadbookRow { background: transparent; border-bottom: 1px "
+                "solid #2a3140; }"
             )
             self.text_label.setStyleSheet("color: #e8e6e1; font-size: 12.5px;")
             self.total_label.setStyleSheet(
-                "color: #e8e6e1; font-weight: 600; font-family: monospace; font-size: 12px;"
+                "color: #e8e6e1; font-weight: 600; font-family: monospace; "
+                "font-size: 12px;"
             )
             self.progress_bar.hide()
 
@@ -177,7 +187,9 @@ class RoadbookStripWidget(QWidget):
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
         self.scroll_area.setStyleSheet("background: transparent; border: none;")
-        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.scroll_area.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
 
         self.container = QWidget()
         self.container_layout = QVBoxLayout(self.container)
@@ -190,7 +202,9 @@ class RoadbookStripWidget(QWidget):
 
         self.empty_label = QLabel("Sin ruta de roadbook activa")
         self.empty_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.empty_label.setStyleSheet("color: #565d6b; font-size: 12px; padding: 20px;")
+        self.empty_label.setStyleSheet(
+            "color: #565d6b; font-size: 12px; padding: 20px;"
+        )
         self.container_layout.insertWidget(0, self.empty_label)
 
     def set_entries(self, entries: list[RoadbookEntry]) -> None:

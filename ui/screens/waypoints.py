@@ -125,7 +125,9 @@ class WaypointFormDialog(QDialog):
         self.activo_checkbox = QCheckBox("Waypoint activo")
         self.activo_checkbox.setChecked(True)
 
-        self.re_triggerable_checkbox = QCheckBox("Puede volver a dispararse (re-entrada)")
+        self.re_triggerable_checkbox = QCheckBox(
+            "Puede volver a dispararse (re-entrada)"
+        )
         self.re_triggerable_checkbox.setChecked(True)
 
         form.addRow("Nombre:", self.nombre_input)
@@ -193,7 +195,9 @@ class WaypointFormDialog(QDialog):
 
     def _on_accept(self) -> None:
         if not self.nombre_input.text().strip():
-            QMessageBox.warning(self, "Falta el nombre", "El waypoint necesita un nombre.")
+            QMessageBox.warning(
+                self, "Falta el nombre", "El waypoint necesita un nombre."
+            )
             return
         self.accept()
 
@@ -208,11 +212,13 @@ class WaypointFormDialog(QDialog):
 
         imagen = (
             self.resource_manager.to_relative_path("images", imagen_filename)
-            if imagen_filename else None
+            if imagen_filename
+            else None
         )
         audio = (
             self.resource_manager.to_relative_path("audio", audio_filename)
-            if audio_filename else None
+            if audio_filename
+            else None
         )
 
         return Waypoint(
@@ -232,7 +238,9 @@ class WaypointFormDialog(QDialog):
             angulo=self._waypoint.angulo if self._waypoint else None,
             icono=self.icono_selector.currentData(),
             orden_ruta=(
-                self.orden_ruta_input.value() if self.orden_ruta_input.value() >= 0 else None
+                self.orden_ruta_input.value()
+                if self.orden_ruta_input.value() >= 0
+                else None
             ),
         )
 
@@ -286,7 +294,13 @@ class WaypointsScreen(QWidget):
         toggle_button.clicked.connect(self._on_toggle_active)
         sequence_button.clicked.connect(self._on_edit_sequence)
 
-        for btn in (add_button, edit_button, delete_button, toggle_button, sequence_button):
+        for btn in (
+            add_button,
+            edit_button,
+            delete_button,
+            toggle_button,
+            sequence_button,
+        ):
             button_bar.addWidget(btn)
         button_bar.addStretch()
 
@@ -330,7 +344,9 @@ class WaypointsScreen(QWidget):
     def _on_edit(self) -> None:
         waypoint_id = self._selected_waypoint_id()
         if waypoint_id is None:
-            QMessageBox.information(self, "Sin selección", "Seleccioná un waypoint primero.")
+            QMessageBox.information(
+                self, "Sin selección", "Seleccioná un waypoint primero."
+            )
             return
 
         try:
@@ -340,7 +356,9 @@ class WaypointsScreen(QWidget):
             self.refresh()
             return
 
-        dialog = WaypointFormDialog(self.resource_manager, waypoint=waypoint, parent=self)
+        dialog = WaypointFormDialog(
+            self.resource_manager, waypoint=waypoint, parent=self
+        )
         if dialog.exec() == QDialog.DialogCode.Accepted:
             updated = dialog.get_waypoint()
             self.repository.update(updated)
@@ -350,7 +368,9 @@ class WaypointsScreen(QWidget):
     def _on_delete(self) -> None:
         waypoint_id = self._selected_waypoint_id()
         if waypoint_id is None:
-            QMessageBox.information(self, "Sin selección", "Seleccioná un waypoint primero.")
+            QMessageBox.information(
+                self, "Sin selección", "Seleccioná un waypoint primero."
+            )
             return
 
         confirm = QMessageBox.question(
@@ -369,7 +389,9 @@ class WaypointsScreen(QWidget):
     def _on_toggle_active(self) -> None:
         waypoint_id = self._selected_waypoint_id()
         if waypoint_id is None:
-            QMessageBox.information(self, "Sin selección", "Seleccioná un waypoint primero.")
+            QMessageBox.information(
+                self, "Sin selección", "Seleccioná un waypoint primero."
+            )
             return
 
         try:
@@ -383,7 +405,9 @@ class WaypointsScreen(QWidget):
     def _on_edit_sequence(self) -> None:
         waypoint_id = self._selected_waypoint_id()
         if waypoint_id is None:
-            QMessageBox.information(self, "Sin selección", "Seleccioná un waypoint primero.")
+            QMessageBox.information(
+                self, "Sin selección", "Seleccioná un waypoint primero."
+            )
             return
 
         try:

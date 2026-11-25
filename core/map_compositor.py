@@ -56,7 +56,9 @@ def compose_map_image(
     Returns:
         Imagen PIL de tamaño exacto (width_px, height_px).
     """
-    canvas = Image.new("RGB", (max(width_px, 1), max(height_px, 1)), color=PLACEHOLDER_COLOR)
+    canvas = Image.new(
+        "RGB", (max(width_px, 1), max(height_px, 1)), color=PLACEHOLDER_COLOR
+    )
 
     if tile_source is None or width_px <= 0 or height_px <= 0:
         return canvas
@@ -81,7 +83,9 @@ def compose_map_image(
             if hasattr(tile_source, "get_tile_image"):
                 tile_image = tile_source.get_tile_image(zoom, tile_x, tile_y, tile_size)
             else:
-                tile_image = _load_tile_image(tile_source, zoom, tile_x, tile_y, tile_size)
+                tile_image = _load_tile_image(
+                    tile_source, zoom, tile_x, tile_y, tile_size
+                )
 
             paste_x = int(tile_x * tile_size - offset_x)
             paste_y = int(tile_y * tile_size - offset_y)
@@ -145,9 +149,13 @@ class CachedTileSource:
         tile_source: Fuente real de tiles (ej: MapManager).
     """
 
-    def __init__(self, tile_source: TileSource, max_cached_tiles: int = DEFAULT_TILE_CACHE_SIZE) -> None:
+    def __init__(
+        self, tile_source: TileSource, max_cached_tiles: int = DEFAULT_TILE_CACHE_SIZE
+    ) -> None:
         self.tile_source = tile_source
-        self._cache: LRUCache[tuple[int, int, int], Image.Image] = LRUCache(max_cached_tiles)
+        self._cache: LRUCache[tuple[int, int, int], Image.Image] = LRUCache(
+            max_cached_tiles
+        )
 
     def get_tile_image(self, zoom: int, x: int, y: int, tile_size: int) -> Image.Image:
         """Obtiene un tile ya decodificado como imagen PIL, usando el cache.

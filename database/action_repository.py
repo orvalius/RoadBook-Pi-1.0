@@ -36,14 +36,17 @@ class ActionRepository:
         """
         conn = self.db.connect()
         cursor = conn.execute(
-            "INSERT INTO actions (waypoint_id, orden, tipo, payload) VALUES (?, ?, ?, ?)",
+            "INSERT INTO actions (waypoint_id, orden, tipo, payload) VALUES (?, ?, "
+            "?, ?)",
             (action.waypoint_id, action.orden, action.tipo, json.dumps(action.payload)),
         )
         conn.commit()
         action.id = cursor.lastrowid
         logger.info(
             "Action creada: id=%s waypoint_id=%s tipo=%s",
-            action.id, action.waypoint_id, action.tipo,
+            action.id,
+            action.waypoint_id,
+            action.tipo,
         )
         return action
 
@@ -93,7 +96,8 @@ class ActionRepository:
 
         logger.info(
             "Secuencia de acciones reemplazada para waypoint_id=%s (%d pasos)",
-            waypoint_id, len(created),
+            waypoint_id,
+            len(created),
         )
         return created
 

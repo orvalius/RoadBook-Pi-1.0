@@ -139,7 +139,8 @@ class LibraryScreen(QWidget):
             if not pixmap.isNull():
                 self.preview_label.setPixmap(
                     pixmap.scaled(
-                        200, 200,
+                        200,
+                        200,
                         Qt.AspectRatioMode.KeepAspectRatio,
                         Qt.TransformationMode.SmoothTransformation,
                     )
@@ -175,7 +176,9 @@ class LibraryScreen(QWidget):
     def _on_delete(self) -> None:
         item = self.file_list.currentItem()
         if item is None:
-            QMessageBox.information(self, "Sin selección", "Seleccioná un recurso primero.")
+            QMessageBox.information(
+                self, "Sin selección", "Seleccioná un recurso primero."
+            )
             return
 
         confirm = QMessageBox.question(

@@ -30,7 +30,9 @@ def test_refires_on_reentry_when_re_triggerable() -> None:
     engine = NavigationEngine()
     fired: list[Waypoint] = []
     engine.on_waypoint_reached = fired.append
-    wp = Waypoint(id=1, nombre="Test", latitud=0.0, longitud=0.0, radio=100.0, re_triggerable=True)
+    wp = Waypoint(
+        id=1, nombre="Test", latitud=0.0, longitud=0.0, radio=100.0, re_triggerable=True
+    )
     engine.load_waypoints([wp])
 
     engine.update_position(INSIDE_POSITION)
@@ -44,7 +46,14 @@ def test_does_not_refire_when_not_re_triggerable() -> None:
     engine = NavigationEngine()
     fired: list[Waypoint] = []
     engine.on_waypoint_reached = fired.append
-    wp = Waypoint(id=1, nombre="Test", latitud=0.0, longitud=0.0, radio=100.0, re_triggerable=False)
+    wp = Waypoint(
+        id=1,
+        nombre="Test",
+        latitud=0.0,
+        longitud=0.0,
+        radio=100.0,
+        re_triggerable=False,
+    )
     engine.load_waypoints([wp])
 
     engine.update_position(INSIDE_POSITION)
@@ -70,7 +79,9 @@ def test_inactive_waypoint_is_not_monitored() -> None:
     engine = NavigationEngine()
     fired: list[Waypoint] = []
     engine.on_waypoint_reached = fired.append
-    inactive_wp = Waypoint(id=1, nombre="Inactivo", latitud=0.0, longitud=0.0, radio=100.0, activo=False)
+    inactive_wp = Waypoint(
+        id=1, nombre="Inactivo", latitud=0.0, longitud=0.0, radio=100.0, activo=False
+    )
     engine.load_waypoints([inactive_wp])
 
     engine.update_position(INSIDE_POSITION)

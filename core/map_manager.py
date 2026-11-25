@@ -38,7 +38,9 @@ def deg2num(lat_deg: float, lon_deg: float, zoom: int) -> tuple[int, int]:
     return int(x), int(y)
 
 
-def deg2num_fractional(lat_deg: float, lon_deg: float, zoom: int) -> tuple[float, float]:
+def deg2num_fractional(
+    lat_deg: float, lon_deg: float, zoom: int
+) -> tuple[float, float]:
     """Igual que ``deg2num`` pero sin truncar (posición exacta dentro del tile).
 
     Args:
@@ -116,7 +118,9 @@ class MapManager:
         if self._connection is None:
             return {}
         try:
-            rows = self._connection.execute("SELECT name, value FROM metadata").fetchall()
+            rows = self._connection.execute(
+                "SELECT name, value FROM metadata"
+            ).fetchall()
             return dict(rows)
         except sqlite3.Error as exc:
             logger.error("MapManager: error leyendo metadata: %s", exc)
@@ -150,7 +154,9 @@ class MapManager:
                 (zoom, x, tms_y),
             ).fetchone()
         except sqlite3.Error as exc:
-            logger.error("MapManager: error leyendo tile (%s,%s,%s): %s", zoom, x, y, exc)
+            logger.error(
+                "MapManager: error leyendo tile (%s,%s,%s): %s", zoom, x, y, exc
+            )
             return None
 
         return row[0] if row else None

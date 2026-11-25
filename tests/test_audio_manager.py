@@ -53,7 +53,8 @@ def test_play_calls_play_on_sound_each_time() -> None:
     manager.play("audio/beep.wav")
 
     sound = manager._get_or_load_sound("audio/beep.wav")
-    assert sound.play_count == 3  # 2 plays anteriores + este get
+    # _get_or_load_sound solo lee del cache: no reproduce.
+    assert sound.play_count == 2
 
 
 def test_different_files_are_cached_separately() -> None:

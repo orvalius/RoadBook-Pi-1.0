@@ -41,7 +41,10 @@ def test_corrupt_file_is_quarantined_and_recreated(tmp_path: Path) -> None:
     # El archivo original corrupto debe seguir existiendo, renombrado
     quarantine_files = list(tmp_path.glob("test.corrupt-*.db"))
     assert len(quarantine_files) == 1
-    assert quarantine_files[0].read_text(encoding="utf-8") == "esto no es una base de datos sqlite"
+    assert (
+        quarantine_files[0].read_text(encoding="utf-8")
+        == "esto no es una base de datos sqlite"
+    )
 
 
 def test_recreated_database_is_usable(tmp_path: Path) -> None:

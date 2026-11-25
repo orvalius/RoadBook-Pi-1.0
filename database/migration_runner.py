@@ -25,21 +25,20 @@ MIGRATIONS_DIR = Path(__file__).resolve().parent / "migrations"
 class MigrationRunner:
     """Aplica migraciones SQL pendientes contra una conexión SQLite."""
 
-    def __init__(self, connection: sqlite3.Connection,
-                 migrations_dir: Path = MIGRATIONS_DIR) -> None:
+    def __init__(
+        self, connection: sqlite3.Connection, migrations_dir: Path = MIGRATIONS_DIR
+    ) -> None:
         self.connection = connection
         self.migrations_dir = migrations_dir
 
     def _ensure_version_table(self) -> None:
-        self.connection.execute(
-            """
+        self.connection.execute("""
             CREATE TABLE IF NOT EXISTS schema_version (
                 version    INTEGER PRIMARY KEY,
                 filename   TEXT NOT NULL,
                 applied_at TEXT NOT NULL DEFAULT (datetime('now'))
             )
-            """
-        )
+            """)
         self.connection.commit()
 
     def _applied_versions(self) -> set[int]:

@@ -77,11 +77,15 @@ def test_state_resets_to_outside_even_when_quick_rejected() -> None:
     fired = []
     engine.on_waypoint_reached = fired.append
 
-    wp = Waypoint(id=1, nombre="Test", latitud=0.0, longitud=0.0, radio=100.0, re_triggerable=True)
+    wp = Waypoint(
+        id=1, nombre="Test", latitud=0.0, longitud=0.0, radio=100.0, re_triggerable=True
+    )
     engine.load_waypoints([wp])
 
     inside = GpsPosition(latitude=0.0, longitude=0.0, has_fix=True)
-    far_away = GpsPosition(latitude=20.0, longitude=20.0, has_fix=True)  # quick-rejected
+    far_away = GpsPosition(
+        latitude=20.0, longitude=20.0, has_fix=True
+    )  # quick-rejected
 
     engine.update_position(inside)
     assert len(fired) == 1

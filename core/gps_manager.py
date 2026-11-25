@@ -19,7 +19,6 @@ from __future__ import annotations
 import json
 import socket
 import threading
-import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
@@ -121,7 +120,9 @@ class GpsManager:
             return
 
         self._stop_event.clear()
-        self._thread = threading.Thread(target=self._run, daemon=True, name="GpsManagerThread")
+        self._thread = threading.Thread(
+            target=self._run, daemon=True, name="GpsManagerThread"
+        )
         self._thread.start()
         logger.info("GpsManager iniciado (backend=%s)", self.backend.value)
 
@@ -291,7 +292,9 @@ class GpsManager:
                                 pending_lon = gga["longitude"]
                             else:
                                 self._notify(
-                                    GpsPosition(latitude=0.0, longitude=0.0, has_fix=False)
+                                    GpsPosition(
+                                        latitude=0.0, longitude=0.0, has_fix=False
+                                    )
                                 )
                             continue
 

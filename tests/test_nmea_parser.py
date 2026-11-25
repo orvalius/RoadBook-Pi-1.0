@@ -37,7 +37,12 @@ def test_parse_gga_without_fix() -> None:
 
 
 def test_parse_gga_wrong_sentence_type_returns_none() -> None:
-    assert parse_gga("$GPRMC,123519,A,4807.038,N,01131.000,E,022.4,084.4,230394,003.1,W*6A") is None
+    assert (
+        parse_gga(
+            "$GPRMC,123519,A,4807.038,N,01131.000,E,022.4,084.4,230394,003.1,W*6A"
+        )
+        is None
+    )
 
 
 def test_parse_rmc_active_status() -> None:

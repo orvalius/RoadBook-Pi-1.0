@@ -39,7 +39,9 @@ class MapWidget(QLabel):
     ) -> None:
         super().__init__(parent)
         self.map_manager = map_manager
-        self._tile_source = CachedTileSource(map_manager) if map_manager is not None else None
+        self._tile_source = (
+            CachedTileSource(map_manager) if map_manager is not None else None
+        )
         self.zoom = zoom
         self.redraw_threshold_meters = redraw_threshold_meters
 
@@ -72,7 +74,9 @@ class MapWidget(QLabel):
         width = max(self.width(), 100)
         height = max(self.height(), 100)
 
-        pil_image = compose_map_image(self._tile_source, lat, lon, self.zoom, width, height)
+        pil_image = compose_map_image(
+            self._tile_source, lat, lon, self.zoom, width, height
+        )
         qt_image = ImageQt(pil_image)
         pixmap = QPixmap.fromImage(qt_image)
         self.setPixmap(pixmap)

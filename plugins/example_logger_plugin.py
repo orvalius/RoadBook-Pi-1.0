@@ -40,4 +40,6 @@ class ExampleLoggerPlugin(RoadBookPlugin):
         LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
         timestamp = datetime.now().isoformat(timespec="seconds")
         with LOG_PATH.open("a", encoding="utf-8") as f:
-            f.write(f"{timestamp} | plugin '{self.name}' ejecutado | payload={payload}\n")
+            f.write(
+                f"{timestamp} | plugin '{self.name}' ejecutado | payload={payload}\n"
+            )

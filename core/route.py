@@ -73,7 +73,9 @@ def parse_gpx(path: str | Path) -> list[tuple[float, float]]:
     return points
 
 
-def _nearest_track_index(track: list[tuple[float, float]], point: tuple[float, float]) -> int:
+def _nearest_track_index(
+    track: list[tuple[float, float]], point: tuple[float, float]
+) -> int:
     """Índice del punto del track más cercano a ``point`` (distancia haversine)."""
     best_index = 0
     best_distance = float("inf")
@@ -102,7 +104,9 @@ def order_waypoints_by_track(
     if not track:
         return list(waypoints)
 
-    indexed = [(wp, _nearest_track_index(track, (wp.latitud, wp.longitud))) for wp in waypoints]
+    indexed = [
+        (wp, _nearest_track_index(track, (wp.latitud, wp.longitud))) for wp in waypoints
+    ]
     indexed.sort(key=lambda pair: pair[1])
     return [wp for wp, _ in indexed]
 
@@ -148,7 +152,8 @@ def resolve_route_order(
             return order_waypoints_by_track(waypoints, track)
         logger.warning(
             "Route: gpx_path configurado (%s) pero sin puntos válidos, "
-            "usando orden fallback", gpx_path,
+            "usando orden fallback",
+            gpx_path,
         )
 
     return order_waypoints_fallback(waypoints)

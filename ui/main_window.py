@@ -93,8 +93,12 @@ class MainWindow(QMainWindow):
         self.navigation_screen = NavigationScreen(
             map_manager=self.map_manager,
             map_zoom=self.config.get("maps.default_zoom", 15),
-            map_redraw_threshold_meters=self.config.get("maps.redraw_threshold_meters", 20.0),
-            image_display_seconds=self.config.get("graphics.image_display_seconds", 5.0),
+            map_redraw_threshold_meters=self.config.get(
+                "maps.redraw_threshold_meters", 20.0
+            ),
+            image_display_seconds=self.config.get(
+                "graphics.image_display_seconds", 5.0
+            ),
             roadbook_engine=self.roadbook_engine,
         )
         self.stack.addWidget(self.navigation_screen)
@@ -137,7 +141,9 @@ class MainWindow(QMainWindow):
         """
         waypoints = self.waypoint_repository.list_all(only_active=True)
         self.navigation_engine.load_waypoints(waypoints)
-        logger.info("NavigationEngine recargado con %d waypoints activos", len(waypoints))
+        logger.info(
+            "NavigationEngine recargado con %d waypoints activos", len(waypoints)
+        )
 
         gpx_path = self.config.get("roadbook.gpx_path", None)
         ordered = resolve_route_order(waypoints, gpx_path)
@@ -169,7 +175,9 @@ class MainWindow(QMainWindow):
         elif action_type is ActionType.RUN_PLUGIN:
             self._handle_run_plugin(payload)
         else:
-            logger.warning("handle_action: tipo de acción no reconocido: %s", action_type)
+            logger.warning(
+                "handle_action: tipo de acción no reconocido: %s", action_type
+            )
 
     def _handle_show_image(self, payload: dict) -> None:
         relative_path = payload.get("path")
@@ -211,7 +219,8 @@ class MainWindow(QMainWindow):
         if plugin is None:
             logger.warning(
                 "Plugin '%s' no está cargado (¿falta en plugins.enabled de "
-                "la config, o el archivo no existe en plugins/?)", plugin_name,
+                "la config, o el archivo no existe en plugins/?)",
+                plugin_name,
             )
             return
 

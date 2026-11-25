@@ -91,14 +91,20 @@ def build_entries(ordered_waypoints: list[Waypoint]) -> list[RoadbookEntry]:
 
     for i, wp in enumerate(ordered_waypoints):
         parcial = (
-            0.0 if previous is None
+            0.0
+            if previous is None
             else NavigationEngine.haversine_distance(
                 previous.latitud, previous.longitud, wp.latitud, wp.longitud
             )
         )
         total += parcial
         entries.append(
-            RoadbookEntry(waypoint=wp, orden=i, distancia_parcial_m=parcial, distancia_total_m=total)
+            RoadbookEntry(
+                waypoint=wp,
+                orden=i,
+                distancia_parcial_m=parcial,
+                distancia_total_m=total,
+            )
         )
         previous = wp
 
@@ -129,8 +135,13 @@ class RoadbookEngine:
             Snapshot del estado actual de la tira.
         """
         if not self.entries:
-            return RoadbookState(entries=[], current_index=0, distance_to_next_m=None,
-                                  progress_fraction=0.0, distance_traveled_m=0.0)
+            return RoadbookState(
+                entries=[],
+                current_index=0,
+                distance_to_next_m=None,
+                progress_fraction=0.0,
+                distance_traveled_m=0.0,
+            )
 
         if not position.has_fix:
             return self._snapshot(None)
@@ -140,7 +151,10 @@ class RoadbookEngine:
         while self._current_index < len(self.entries) - 1:
             current_wp = self.entries[self._current_index].waypoint
             distance = NavigationEngine.haversine_distance(
-                position.latitude, position.longitude, current_wp.latitud, current_wp.longitud
+                position.latitude,
+                position.longitude,
+                current_wp.latitud,
+                current_wp.longitud,
             )
             if distance <= current_wp.radio:
                 self._current_index += 1
@@ -156,18 +170,22 @@ class RoadbookEngine:
 
         if position is not None:
             distance_to_next = NavigationEngine.haversine_distance(
-                position.latitude, position.longitude,
-                current_entry.waypoint.latitud, current_entry.waypoint.longitud,
+                position.latitude,
+                position.longitude,
+                current_entry.waypoint.latitud,
+                current_entry.waypoint.longitud,
             )
             segment_total = current_entry.distancia_parcial_m
             progress = (
                 max(0.0, min(1.0, 1 - (distance_to_next / segment_total)))
-                if segment_total > 0 else 1.0
+                if segment_total > 0
+                else 1.0
             )
 
         already_traveled = (
             self.entries[self._current_index - 1].distancia_total_m
-            if self._current_index > 0 else 0.0
+            if self._current_index > 0
+            else 0.0
         )
         within_segment = (
             (current_entry.distancia_parcial_m - distance_to_next)

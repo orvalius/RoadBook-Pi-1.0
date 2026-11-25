@@ -56,7 +56,9 @@ def main() -> int:
         enabled=config.get("audio.enabled", True),
         volume=config.get("audio.volume", 0.8),
     )
-    map_manager = MapManager(config.get("maps.mbtiles_path", "resources/maps/default.mbtiles"))
+    map_manager = MapManager(
+        config.get("maps.mbtiles_path", "resources/maps/default.mbtiles")
+    )
 
     plugin_manager = PluginManager()
     loaded_plugins = plugin_manager.load_from_directory(
@@ -67,7 +69,9 @@ def main() -> int:
         logger.info("Plugins cargados: %s", loaded_plugins)
 
     navigation_engine = NavigationEngine(
-        heading_tolerance_degrees=config.get("navigation.heading_tolerance_degrees", 45.0)
+        heading_tolerance_degrees=config.get(
+            "navigation.heading_tolerance_degrees", 45.0
+        )
     )
     active_waypoints = waypoint_repository.list_all(only_active=True)
     navigation_engine.load_waypoints(active_waypoints)
@@ -108,8 +112,13 @@ def main() -> int:
     action_adapter = QtActionAdapter(action_dispatcher)
 
     window = MainWindow(
-        config, waypoint_repository, navigation_engine, resource_manager, audio_manager,
-        action_repository, plugin_manager,
+        config,
+        waypoint_repository,
+        navigation_engine,
+        resource_manager,
+        audio_manager,
+        action_repository,
+        plugin_manager,
         map_manager=map_manager,
         roadbook_engine=roadbook_engine,
     )

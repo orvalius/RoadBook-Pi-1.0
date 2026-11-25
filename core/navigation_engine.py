@@ -66,7 +66,9 @@ class NavigationEngine:
             condición de rumbo de los waypoints.
     """
 
-    def __init__(self, heading_tolerance_degrees: float = DEFAULT_HEADING_TOLERANCE_DEGREES) -> None:
+    def __init__(
+        self, heading_tolerance_degrees: float = DEFAULT_HEADING_TOLERANCE_DEGREES
+    ) -> None:
         self.on_waypoint_reached: WaypointCallback | None = None
         self.heading_tolerance_degrees = heading_tolerance_degrees
 
@@ -96,7 +98,8 @@ class NavigationEngine:
             self._waypoints = [wp for wp in waypoints if wp.activo]
             valid_ids = {wp.id for wp in self._waypoints if wp.id is not None}
             self._state = {
-                wp_id: state for wp_id, state in self._state.items()
+                wp_id: state
+                for wp_id, state in self._state.items()
                 if wp_id in valid_ids
             }
             for wp in self._waypoints:
@@ -177,7 +180,9 @@ class NavigationEngine:
             realmente está afuera).
         """
         METERS_PER_DEGREE_LATITUDE = 111_320
-        lat_diff_m = abs(position.latitude - waypoint.latitud) * METERS_PER_DEGREE_LATITUDE
+        lat_diff_m = (
+            abs(position.latitude - waypoint.latitud) * METERS_PER_DEGREE_LATITUDE
+        )
         return lat_diff_m > waypoint.radio
 
     def _conditions_met(self, waypoint: Waypoint, position: GpsPosition) -> bool:
@@ -193,7 +198,9 @@ class NavigationEngine:
         if waypoint.velocidad is not None and position.speed < waypoint.velocidad:
             logger.debug(
                 "Waypoint %s: velocidad insuficiente (%.1f < %.1f)",
-                waypoint.id, position.speed, waypoint.velocidad,
+                waypoint.id,
+                position.speed,
+                waypoint.velocidad,
             )
             return False
 
@@ -208,7 +215,9 @@ class NavigationEngine:
             if diff > self.heading_tolerance_degrees:
                 logger.debug(
                     "Waypoint %s: rumbo fuera de tolerancia (%.1f° > %.1f°)",
-                    waypoint.id, diff, self.heading_tolerance_degrees,
+                    waypoint.id,
+                    diff,
+                    self.heading_tolerance_degrees,
                 )
                 return False
 
@@ -229,9 +238,7 @@ class NavigationEngine:
             return
 
         self._already_fired.add(waypoint.id)
-        logger.info(
-            "Waypoint alcanzado: id=%s nombre=%s", waypoint.id, waypoint.nombre
-        )
+        logger.info("Waypoint alcanzado: id=%s nombre=%s", waypoint.id, waypoint.nombre)
 
         if self.on_waypoint_reached is not None:
             self.on_waypoint_reached(waypoint)
@@ -281,9 +288,7 @@ class NavigationEngine:
         return diff if diff <= 180 else 360 - diff
 
     @staticmethod
-    def haversine_distance(
-        lat1: float, lon1: float, lat2: float, lon2: float
-    ) -> float:
+    def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
         """Calcula la distancia en metros entre dos coordenadas GPS.
 
         Args:

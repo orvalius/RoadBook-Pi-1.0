@@ -23,7 +23,9 @@ def test_angular_difference_opposite() -> None:
 
 
 def test_velocidad_condition_blocks_when_too_slow() -> None:
-    wp = Waypoint(id=1, nombre="Rapido", latitud=0.0, longitud=0.0, radio=100.0, velocidad=60.0)
+    wp = Waypoint(
+        id=1, nombre="Rapido", latitud=0.0, longitud=0.0, radio=100.0, velocidad=60.0
+    )
     engine = NavigationEngine()
     fired = []
     engine.on_waypoint_reached = fired.append
@@ -36,7 +38,9 @@ def test_velocidad_condition_blocks_when_too_slow() -> None:
 
 
 def test_velocidad_condition_allows_when_fast_enough() -> None:
-    wp = Waypoint(id=1, nombre="Rapido", latitud=0.0, longitud=0.0, radio=100.0, velocidad=60.0)
+    wp = Waypoint(
+        id=1, nombre="Rapido", latitud=0.0, longitud=0.0, radio=100.0, velocidad=60.0
+    )
     engine = NavigationEngine()
     fired = []
     engine.on_waypoint_reached = fired.append
@@ -49,20 +53,26 @@ def test_velocidad_condition_allows_when_fast_enough() -> None:
 
 
 def test_angulo_condition_blocks_when_wrong_heading() -> None:
-    wp = Waypoint(id=1, nombre="Direccional", latitud=0.0, longitud=0.0, radio=100.0, angulo=0.0)
+    wp = Waypoint(
+        id=1, nombre="Direccional", latitud=0.0, longitud=0.0, radio=100.0, angulo=0.0
+    )
     engine = NavigationEngine(heading_tolerance_degrees=30.0)
     fired = []
     engine.on_waypoint_reached = fired.append
     engine.load_waypoints([wp])
 
-    wrong_heading = GpsPosition(latitude=0.0, longitude=0.0, heading=180.0, has_fix=True)
+    wrong_heading = GpsPosition(
+        latitude=0.0, longitude=0.0, heading=180.0, has_fix=True
+    )
     engine.update_position(wrong_heading)
 
     assert fired == []
 
 
 def test_angulo_condition_allows_within_tolerance() -> None:
-    wp = Waypoint(id=1, nombre="Direccional", latitud=0.0, longitud=0.0, radio=100.0, angulo=0.0)
+    wp = Waypoint(
+        id=1, nombre="Direccional", latitud=0.0, longitud=0.0, radio=100.0, angulo=0.0
+    )
     engine = NavigationEngine(heading_tolerance_degrees=30.0)
     fired = []
     engine.on_waypoint_reached = fired.append
@@ -75,7 +85,9 @@ def test_angulo_condition_allows_within_tolerance() -> None:
 
 
 def test_angulo_condition_blocks_when_no_heading_available() -> None:
-    wp = Waypoint(id=1, nombre="Direccional", latitud=0.0, longitud=0.0, radio=100.0, angulo=0.0)
+    wp = Waypoint(
+        id=1, nombre="Direccional", latitud=0.0, longitud=0.0, radio=100.0, angulo=0.0
+    )
     engine = NavigationEngine()
     fired = []
     engine.on_waypoint_reached = fired.append

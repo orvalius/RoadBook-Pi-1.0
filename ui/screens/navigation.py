@@ -90,7 +90,9 @@ class NavigationScreen(QWidget):
         split_layout.setSpacing(0)
 
         self.map_widget = MapWidget(
-            map_manager, zoom=map_zoom, redraw_threshold_meters=map_redraw_threshold_meters
+            map_manager,
+            zoom=map_zoom,
+            redraw_threshold_meters=map_redraw_threshold_meters,
         )
         self.roadbook_strip = RoadbookStripWidget()
 
@@ -106,7 +108,8 @@ class NavigationScreen(QWidget):
         self.status_label = QLabel("Esperando señal GPS...")
         self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.status_label.setStyleSheet(
-            "background-color: rgba(0, 0, 0, 140); color: white; padding: 6px; border-radius: 6px;"
+            "background-color: rgba(0, 0, 0, 140); color: white; padding: 6px; "
+            "border-radius: 6px;"
         )
         font = self.status_label.font()
         font.setPointSize(16)
@@ -115,7 +118,8 @@ class NavigationScreen(QWidget):
         self.detail_label = QLabel("")
         self.detail_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.detail_label.setStyleSheet(
-            "background-color: rgba(0, 0, 0, 140); color: white; padding: 4px; border-radius: 6px;"
+            "background-color: rgba(0, 0, 0, 140); color: white; padding: 4px; "
+            "border-radius: 6px;"
         )
 
         readout_layout.addStretch()
@@ -163,7 +167,8 @@ class NavigationScreen(QWidget):
             if self._last_fix_time is not None:
                 elapsed = time.monotonic() - self._last_fix_time
                 self.status_label.setText(
-                    f"Sin fix GPS (última posición hace {format_duration_seconds(elapsed)})"
+                    f"Sin fix GPS (última posición hace "
+                    f"{format_duration_seconds(elapsed)})"
                 )
             else:
                 self.status_label.setText("Sin fix GPS")
@@ -171,10 +176,10 @@ class NavigationScreen(QWidget):
             return
 
         self._last_fix_time = time.monotonic()
-        self.status_label.setText(
-            f"{position.latitude:.6f}, {position.longitude:.6f}"
+        self.status_label.setText(f"{position.latitude:.6f}, {position.longitude:.6f}")
+        heading_text = (
+            f"{position.heading:.0f}°" if position.heading is not None else "—"
         )
-        heading_text = f"{position.heading:.0f}°" if position.heading is not None else "—"
         self.detail_label.setText(
             f"Velocidad: {position.speed:.0f} km/h    Rumbo: {heading_text}"
         )
