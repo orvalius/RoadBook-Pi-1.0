@@ -695,3 +695,62 @@ tulip), sincronizada con la posición GPS, junto al mapa.
   desde la app (hoy se edita `roadbook.gpx_path` a mano en
   `config.json`) — queda como pulido posterior, igual que la gestión
   de mapas offline mencionada en el release 1.0.0.
+
+## [1.2.0] - Pulido: cierre ordenado, Mapas y ruta, tests de UI
+
+### Corregido
+
+- **La app no cerraba ante `SIGTERM`.** `pygame.mixer.init()`
+  inicializa SDL, que instala sus propios handlers de `SIGINT`/`SIGTERM`
+  y se tragaba la señal: cada `systemctl stop` o apagado de la Pi
+  esperaba el timeout de systemd y terminaba en `SIGKILL`, sin cerrar
+  GPS ni base de datos. Ahora:
+  - `AudioManager` desactiva los handlers de SDL
+    (`SDL_NO_SIGNAL_HANDLERS=1`).
+  - `ui/signal_handler.py` (`GracefulShutdown`): ante `SIGTERM`,
+    `SIGINT` o `SIGHUP` pide `QApplication.quit()`. Usa
+    `signal.set_wakeup_fd` + `QSocketNotifier` para despertar el loop
+    de Qt sin polling.
+  - `main.py` libera los recursos en un `finally`, paso a paso y
+    tolerante a errores (GPS → audio → mapas → base de datos).
+  - El service de systemd declara `KillSignal=SIGTERM` y
+    `TimeoutStopSec=15`.
+- `test_audio_manager`: la expectativa del test estaba mal (contaba una
+  reproducción de más); el código era correcto.
+
+### Agregado
+
+- **Pantalla "Mapas y ruta"** (`ui/screens/maps_route.py`), pendiente
+  desde los releases 1.0.0 y 1.1.0:
+  - Mapa offline: lista los `.mbtiles` de la biblioteca, muestra
+    nombre/formato/rango de zoom/tamaño, importa (validando *antes* de
+    copiar, en segundo plano con progreso y cancelar), usa o quita.
+    Rechaza mbtiles vectoriales.
+  - Track GPX: lista, importa, usa o quita; muestra puntos y km.
+  - Los cambios se aplican sin reiniciar y quedan guardados en
+    `config.json` como rutas relativas.
+- `core/map_manager.py`: `inspect_mbtiles()` / `MbtilesInfo`,
+  `MapManager.open()` para cambiar de mapa en caliente, apertura en
+  solo lectura (no crea archivos de journal en la SD).
+- `core/route.py`: `inspect_gpx()` / `GpxInfo`, `track_length_m()`, y
+  `parse_gpx` acepta rutas (`rtept`) cuando el GPX no tiene track.
+- `core/resource_manager.py`: categoría `routes`; importación con
+  callback de progreso; nunca deja un archivo a medio copiar.
+- Al cambiar de mapa, el zoom se ajusta al rango del archivo nuevo.
+- **Tests de la capa Qt** (pytest-qt, plataforma `offscreen`): pantalla
+  de navegación, widget de mapa, "Mapas y ruta", integración con
+  `MainWindow`, y cierre por `SIGTERM` de punta a punta en un proceso
+  con pygame activo. 182 → 233 tests.
+
+### Cambiado
+
+- Las rutas de la biblioteca (mapa, GPX) se resuelven contra la raíz
+  del proyecto, no contra el directorio desde donde se lanzó la app.
+- Código formateado con black y sin avisos de ruff.
+
+### Pendiente
+
+- Validación en hardware real (Raspberry Pi + receptor GPS + instalador
+  systemd).
+- Soporte de tiles vectoriales para Pi 4/5 (candidato a v1.3).
+
