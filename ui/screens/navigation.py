@@ -137,6 +137,16 @@ class NavigationScreen(QWidget):
         self._overlay_layout.addWidget(readout_widget)
         self._overlay_layout.addWidget(self.image_label)
 
+        # En modo StackAll, QStackedLayout sube al frente el widget
+        # "actual" (el índice 0: mapa + tira), que tapaba el readout y
+        # la imagen de los waypoints. El orden visual se fija a mano.
+        # El readout no debe capturar toques: si no, bloquea el scroll
+        # de la tira que queda debajo.
+        readout_widget.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self._readout_widget = readout_widget
+        readout_widget.raise_()
+        self.image_label.raise_()
+
         outer_layout.addWidget(self._overlay_container)
 
     def set_roadbook_engine(self, roadbook_engine: RoadbookEngine | None) -> None:
@@ -219,6 +229,7 @@ class NavigationScreen(QWidget):
         self._current_pixmap = pixmap
         self._apply_scaled_pixmap()
         self.image_label.show()
+        self.image_label.raise_()
 
         self._hide_timer.stop()
         if auto_hide:

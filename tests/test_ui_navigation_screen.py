@@ -6,6 +6,9 @@ import pytest
 
 pytest.importorskip("pytestqt")
 
+from PyQt6.QtCore import QPoint  # noqa: E402
+from PyQt6.QtGui import QColor, QImage  # noqa: E402
+
 from core.gps_manager import GpsPosition  # noqa: E402
 from core.map_manager import MapManager  # noqa: E402
 from core.roadbook_engine import RoadbookEngine, build_entries  # noqa: E402
@@ -57,3 +60,58 @@ def test_map_widget_placeholder_without_map(qtbot) -> None:
     assert widget.text() == "Sin mapa offline cargado"
     widget.reload_source()
     assert widget.text() == "Sin mapa offline cargado"
+
+
+def _shown_screen(qtbot) -> NavigationScreen:
+    screen = NavigationScreen(roadbook_engine=_engine())
+    qtbot.addWidget(screen)
+    screen.resize(800, 480)
+    screen.show()
+    qtbot.waitExposed(screen)
+    return screen
+
+
+def _pixel(screen: NavigationScreen, widget, fx: float, fy: float) -> QColor:
+    """Color real dibujado en un punto relativo de ``widget``."""
+    image = screen.grab().toImage()
+    local = QPoint(int(widget.width() * fx), int(widget.height() * fy))
+    point = widget.mapTo(screen, local)
+    ratio = image.width() / screen.width()
+    return image.pixelColor(int(point.x() * ratio), int(point.y() * ratio))
+
+
+def test_waypoint_image_covers_map_and_strip(qtbot, tmp_path) -> None:
+    # Regresión v1.1: la imagen del evento quedaba debajo del mapa y la tira.
+    red = QImage(400, 300, QImage.Format.Format_RGB32)
+    red.fill(QColor(255, 0, 0))
+    path = tmp_path / "rojo.png"
+    red.save(str(path))
+    screen = _shown_screen(qtbot)
+
+    screen.show_image(path, auto_hide=False)
+
+    for widget in (screen.map_widget, screen.roadbook_strip):
+        color = _pixel(screen, widget, 0.5, 0.15)
+        assert (color.red(), color.green(), color.blue()) == (255, 0, 0), widget
+
+
+def test_gps_readout_is_drawn_above_map(qtbot) -> None:
+    screen = _shown_screen(qtbot)
+    map_gray = _pixel(screen, screen.map_widget, 0.1, 0.1)  # zona sin readout
+
+    screen.update_position(GpsPosition(latitude=-31.5, longitude=-64.3, has_fix=True))
+    qtbot.wait(20)
+
+    # El fondo semitransparente negro del readout oscurece el mapa debajo.
+    under_label = _pixel(screen, screen.status_label, 0.02, 0.5)
+    assert under_label.lightness() < map_gray.lightness() - 40
+
+
+def test_readout_does_not_block_touches_on_strip(qtbot) -> None:
+    screen = _shown_screen(qtbot)
+    strip_point = screen.roadbook_strip.mapTo(
+        screen, screen.roadbook_strip.rect().center()
+    )
+    target = screen.childAt(strip_point)
+    assert target is not None
+    assert screen.roadbook_strip.isAncestorOf(target) or target is screen.roadbook_strip

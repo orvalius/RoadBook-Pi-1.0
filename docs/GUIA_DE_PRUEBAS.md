@@ -229,7 +229,7 @@ instante, sin reiniciar la app.
 pytest
 ```
 
-Deberían pasar todos (son más de 230 tests entre lógica de negocio,
+Deberían pasar todos (son más de 235 tests entre lógica de negocio,
 GPS, base de datos, event engine, plugins, roadbook engine y la
 interfaz Qt, que se prueba sin abrir ventanas). Si
 alguno falla, copiame el error y lo reviso.

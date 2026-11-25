@@ -715,6 +715,13 @@ tulip), sincronizada con la posición GPS, junto al mapa.
     tolerante a errores (GPS → audio → mapas → base de datos).
   - El service de systemd declara `KillSignal=SIGTERM` y
     `TimeoutStopSec=15`.
+- **La imagen de los waypoints quedaba tapada** (regresión de la
+  v1.1.0). La pantalla de Navegación apila capas con `QStackedLayout`
+  en modo `StackAll`, que sube al frente el widget "actual" — el mapa +
+  tira — y dejaba debajo el readout GPS y el overlay de imagen del
+  Event Engine. Ahora el orden de capas se fija explícitamente y el
+  readout deja pasar los toques hacia la tira. Tests de píxeles reales
+  que lo verifican.
 - `test_audio_manager`: la expectativa del test estaba mal (contaba una
   reproducción de más); el código era correcto.
 
@@ -740,7 +747,7 @@ tulip), sincronizada con la posición GPS, junto al mapa.
 - **Tests de la capa Qt** (pytest-qt, plataforma `offscreen`): pantalla
   de navegación, widget de mapa, "Mapas y ruta", integración con
   `MainWindow`, y cierre por `SIGTERM` de punta a punta en un proceso
-  con pygame activo. 182 → 233 tests.
+  con pygame activo. 182 → 236 tests.
 
 ### Cambiado
 
