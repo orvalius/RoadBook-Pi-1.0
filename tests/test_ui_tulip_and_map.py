@@ -173,3 +173,56 @@ def test_navigation_screen_moves_vehicle_and_highlights_next(qtbot) -> None:
     screen.update_position(GpsPosition(0.005, 0.0, speed=50, heading=0, has_fix=True))
     assert screen.map_widget._current_index == 1  # pasó la largada: va al cruce
     assert screen.map_widget._last_lat == pytest.approx(0.005)
+
+
+def test_map_pixels_match_tiles_after_memory_churn(qtbot, tmp_path) -> None:
+    # Regresión: QPixmap.fromImage(ImageQt(img)) quedaba apuntando al buffer
+    # de un objeto temporal; al liberarse, el mapa mostraba franjas de basura.
+    import gc
+
+    import numpy as np
+
+    from core.map_compositor import compose_map_image
+    from core.map_generator import RouteMap, generate_mbtiles
+
+    path = generate_mbtiles(
+        tmp_path / "g.mbtiles",
+        RouteMap(line=[(-31.57, -64.37), (-31.58, -64.36)], notes=[]),
+        min_zoom=15,
+        max_zoom=15,
+        margin_km=1.5,
+    )
+    manager = MapManager(path)
+    widget = MapWidget(manager, zoom=15)
+    qtbot.addWidget(widget)
+    # Pantalla de alta densidad: el camino donde aparecía la corrupción.
+    widget.devicePixelRatioF = lambda: 2.0
+    widget.resize(300, 300)
+    widget.show()
+    qtbot.waitExposed(widget)
+    widget.update_vehicle(-31.575, -64.365, heading=None)
+
+    gc.collect()
+    junk = [
+        bytes(np.random.default_rng(i).integers(0, 255, 300_000, dtype=np.uint8))
+        for i in range(40)
+    ]
+    qtbot.wait(20)
+
+    shown = widget.pixmap().toImage().scaled(300, 300)
+    view = widget.viewport
+    expected = compose_map_image(
+        manager, view.center_lat, view.center_lon, 15, 300, 300
+    )
+    diffs = []
+    vx, vy = view.to_pixel(-31.575, -64.365)
+    for y in range(0, 300, 3):
+        for x in range(0, 300, 3):
+            if (x - vx) ** 2 + (y - vy) ** 2 < 30**2:
+                continue  # el vehículo va dibujado encima
+            c = shown.pixelColor(x, y)
+            r, g, b = expected.getpixel((x, y))
+            diffs.append(abs(c.red() - r) + abs(c.green() - g) + abs(c.blue() - b))
+    del junk
+    manager.close()
+    assert sum(diffs) / len(diffs) < 12

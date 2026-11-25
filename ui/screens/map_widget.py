@@ -23,9 +23,9 @@ from __future__ import annotations
 
 import math
 
-from PIL.ImageQt import ImageQt
+from PIL import Image
 from PyQt6.QtCore import QPointF, QRectF, Qt
-from PyQt6.QtGui import QColor, QFont, QPainter, QPen, QPixmap, QPolygonF
+from PyQt6.QtGui import QColor, QFont, QImage, QPainter, QPen, QPixmap, QPolygonF
 from PyQt6.QtWidgets import QLabel, QWidget
 
 from core.logger import get_logger
@@ -183,7 +183,7 @@ class MapWidget(QLabel):
             image = compose_map_image(
                 self._tile_source, center[0], center[1], self.zoom, width, height
             )
-            pixmap = QPixmap.fromImage(ImageQt(image))
+            pixmap = pil_to_pixmap(image)
             # La base se escala a la densidad de la pantalla; lo que se dibuja
             # encima (ruta, vehículo) queda nítido.
             if ratio != 1.0:
@@ -295,6 +295,22 @@ class MapWidget(QLabel):
             Qt.AlignmentFlag.AlignLeft,
             "Sin mapa offline: solo ruta y posición",
         )
+
+
+def pil_to_pixmap(image: Image.Image) -> QPixmap:
+    """Convierte una imagen de Pillow a QPixmap con copia profunda.
+
+    ``QPixmap.fromImage(ImageQt(img))`` puede quedar apuntando al buffer
+    del objeto ``ImageQt`` temporal: cuando Python lo libera, parte del
+    mapa se ve como franjas de basura. Acá los bytes se copian a un
+    ``QImage`` propio antes de soltar el buffer.
+    """
+    rgb = image.convert("RGB")
+    data = rgb.tobytes("raw", "RGB")
+    qimage = QImage(
+        data, rgb.width, rgb.height, rgb.width * 3, QImage.Format.Format_RGB888
+    ).copy()
+    return QPixmap.fromImage(qimage)
 
 
 def _pen(color: QColor, width: float) -> QPen:

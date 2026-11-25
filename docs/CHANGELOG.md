@@ -809,10 +809,16 @@ tulip), sincronizada con la posición GPS, junto al mapa.
 - Vaciar la ruta destruía el cartel "Sin ruta de roadbook activa" y al
   volver a vaciarla se intentaba mostrar un widget ya destruido.
 - Distancias "345 m" se mostraban como "340 m" (redondeo al par).
+- **Franjas de basura en el mapa** (presente desde la v0.7): la
+  conversión `QPixmap.fromImage(ImageQt(img))` podía quedar apuntando al
+  buffer de un objeto temporal; al liberarse, partes del mapa se veían
+  corruptas (se manifestaba en pantallas de alta densidad). Ahora se
+  copian los bytes a un `QImage` propio. Test que compara píxeles del
+  widget contra los tiles y falla con la conversión anterior.
 
 ### Tests
 
-- 238 → 293: giros, viewport, generador (continuidad entre tiles,
+- 238 → 294: giros, viewport, generador (continuidad entre tiles,
   metadatos, cancelación), tulipa (lado de la flecha por píxeles),
   tarjeta de próxima curva, vehículo y ruta en el mapa, recompuesto
   solo cerca del borde, botón de generar mapa.
