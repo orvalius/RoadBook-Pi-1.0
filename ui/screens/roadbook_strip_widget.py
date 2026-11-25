@@ -162,6 +162,9 @@ class RoadbookEntryRow(QFrame):
             self.progress_bar.hide()
 
 
+STRIP_BG = "#1c2128"
+
+
 class RoadbookStripWidget(QWidget):
     """Tira scrolleable con la secuencia completa del roadbook activo."""
 
@@ -171,7 +174,17 @@ class RoadbookStripWidget(QWidget):
         self._build_ui()
 
     def _build_ui(self) -> None:
-        self.setStyleSheet("background: #1c2128;")
+        # Reglas con selector a propósito: una regla suelta como
+        # "background: transparent" en el QScrollArea se hereda a todas
+        # las filas y deja ver el fondo claro de la ventana debajo del
+        # texto claro de la tira (ilegible). Ver test_ui_roadbook_strip.
+        self.setObjectName("roadbookStrip")
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self.setStyleSheet(
+            f"#roadbookStrip, #roadbookContainer {{ background: {STRIP_BG}; }}"
+            f"QScrollArea {{ background: {STRIP_BG}; border: none; }}"
+            f"QScrollArea > QWidget {{ background: {STRIP_BG}; }}"
+        )
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -186,12 +199,12 @@ class RoadbookStripWidget(QWidget):
 
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
-        self.scroll_area.setStyleSheet("background: transparent; border: none;")
         self.scroll_area.setHorizontalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff
         )
 
         self.container = QWidget()
+        self.container.setObjectName("roadbookContainer")
         self.container_layout = QVBoxLayout(self.container)
         self.container_layout.setContentsMargins(0, 0, 0, 0)
         self.container_layout.setSpacing(0)

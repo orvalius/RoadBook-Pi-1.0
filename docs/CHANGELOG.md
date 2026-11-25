@@ -722,6 +722,10 @@ tulip), sincronizada con la posición GPS, junto al mapa.
   Event Engine. Ahora el orden de capas se fija explícitamente y el
   readout deja pasar los toques hacia la tira. Tests de píxeles reales
   que lo verifican.
+- **La tira del roadbook era casi ilegible**: una regla
+  `background: transparent` sin selector en el área de scroll se
+  heredaba a todas las filas, que quedaban con texto claro sobre el
+  fondo claro de la ventana en vez del fondo oscuro del diseño.
 - `test_audio_manager`: la expectativa del test estaba mal (contaba una
   reproducción de más); el código era correcto.
 
@@ -747,7 +751,7 @@ tulip), sincronizada con la posición GPS, junto al mapa.
 - **Tests de la capa Qt** (pytest-qt, plataforma `offscreen`): pantalla
   de navegación, widget de mapa, "Mapas y ruta", integración con
   `MainWindow`, y cierre por `SIGTERM` de punta a punta en un proceso
-  con pygame activo. 182 → 236 tests.
+  con pygame activo. 182 → 238 tests.
 
 ### Cambiado
 
